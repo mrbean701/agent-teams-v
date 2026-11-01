@@ -867,3 +867,11 @@ Các vòng trước đột biến SẢN PHẨM rồi xem cổng có đỏ. Lư�
 2. **Mặc định phải được canh bằng assert dương**: `start_if_needed` mặc định `false` được bảo vệ bởi 4 assert của t155 (schema optional, `/Default false/`, `starts.length 0`, câu trả lời cũ nguyên văn) — audit đổi default→`true` thì t155 đỏ 9/11. Tức hành vi 'không cờ thì không spawn' không phải lời khai.
 3. **Escalate override rồi xoá là chủ ý, nhưng có giá**: `members.js:1070-1076` ghi `provider/model` TRƯỚC khi xoá `routeOverride` nên cold-resume không mất route (audit xác nhận), đổi lại dòng `working` mất provenance `source:'erp'` (V26-F3). Khi tài liệu hoá phải nói cả hai vế.
 4. **Timeout của suite LIVE là dấu 'chưa kết luận', không phải hồi quy**: `t154` timeout 120 s sau khi boot xong 7,9 s (V26-F4). Ghi là finding low và theo dõi, không được vội kết luận sản phẩm hỏng.
+
+## Vòng 26 (phần 2) — ĐÍNH CHÍNH: hai hàng rào, không phải một
+
+- **Tiền đề SAI**: audit t158 và tôi đều nói 'bỏ `withTeamLock` quanh `startMemberOnDemandNow` ⇒ 2 phiên, nên `t155` 11/11 là cổng mù'.
+- **Sự thật đo được (t159)**: `lib/members.js:893-907` giữ mutex THỨ HAI (`withPending`, thông điệp `member model selection is already pending`). Bản sao bỏ `withTeamLock` một mình: `lockless copy … starts=1 started=[true,false]` ⇒ **vẫn 1 phiên**. Bản sao bỏ CẢ HAI: `got 2 sessions` ⇒ mới đỏ.
+- **Hệ quả với V26-F1**: finding vẫn hợp lệ nhưng phải phát biểu lại — cổng phải canh **CẶP hàng rào**, không phải canh riêng `withTeamLock`. A2 của t159 (đòi bản sao bỏ khoá phải đỏ) là **bất khả thi** ⇒ t159 FAILED là đúng, và t160 đóng lại với tiêu chí đúng.
+- **Bài học phương pháp**: trước khi viết tiêu chí 'bỏ X thì phải đỏ', phải **grep xem còn hàng rào nào khác** cùng bảo vệ bất biến đó; nếu không, tiêu chí sinh ra một card bất khả thi và một finding sai.
+- **Bài học harness**: đổi `withTeamLock(k, async () => {` thành IIFE phải thêm `()` ở cuối — thiếu thì `await` trả về chính HÀM, bản sao không spawn, và đối chứng trông như 'got 0 sessions' (bắt được nhờ in `starts=N started=[…]` trong assert).

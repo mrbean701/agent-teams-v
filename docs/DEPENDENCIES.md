@@ -2,7 +2,7 @@
 
 > File sinh tu dong boi `node tools/dependency-report.mjs`. KHONG sua tay: sua du lieu goc roi chay lai.
 > Nguon: `.agent-teams/nami-agent-teams/team.json` (canh that) + `docs/provenance-tasks.json` (canh provenance).
-> Sinh luc: 2026-11-01T11:29:13.461Z · pha doi: **running** · 158 task / 15 member.
+> Sinh luc: 2026-11-01T12:23:41.486Z · pha doi: **running** · 160 task / 15 member.
 
 ## 1. Cach doc
 
@@ -27,6 +27,8 @@ flowchart LR
     t152["t152<br/>✅ completed<br/>audit-goat"]
     t156["t156<br/>✅ completed<br/>dev-runtime-goat"]
     t158["t158<br/>✅ completed<br/>audit-goat"]
+    t159["t159<br/>❌ failed<br/>dev-runtime-goat"]
+    t160["t160<br/>✅ completed<br/>dev-runtime-goat"]
   end
   subgraph W1["Song 1"]
     direction TB
@@ -638,6 +640,8 @@ flowchart LR
 | 0 | t152 | ✅ completed | audit-goat | — | — |
 | 0 | t156 | ✅ completed | dev-runtime-goat | — | — |
 | 0 | t158 | ✅ completed | audit-goat | — | — |
+| 0 | t159 | ❌ failed | dev-runtime-goat | — | — |
+| 0 | t160 | ✅ completed | dev-runtime-goat | — | — |
 | 1 | t2 | ✅ completed | nghien-cuu | t1 | — |
 | 1 | t5 | ✅ completed | kiem-thu | t1 | — |
 | 1 | t22 | ✅ completed | dev-tools-flash | t9 | — |
