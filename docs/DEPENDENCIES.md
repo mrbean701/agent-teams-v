@@ -2,7 +2,7 @@
 
 > File sinh tu dong boi `node tools/dependency-report.mjs`. KHONG sua tay: sua du lieu goc roi chay lai.
 > Nguon: `.agent-teams/nami-agent-teams/team.json` (canh that) + `docs/provenance-tasks.json` (canh provenance).
-> Sinh luc: 2026-11-01T07:58:19.963Z · pha doi: **running** · 146 task / 15 member.
+> Sinh luc: 2026-11-01T08:29:15.743Z · pha doi: **running** · 147 task / 15 member.
 
 ## 1. Cach doc
 
@@ -33,8 +33,9 @@ flowchart LR
     t60["t60<br/>✅ completed<br/>dev-ui-goat"]
     t129["t129<br/>✅ completed<br/>dev-runtime-goat"]
     t139["t139<br/>✅ completed<br/>dev-ui-goat"]
-    t145["t145<br/>🔄 in_progress<br/>dev-runtime-goat"]
-    t146["t146<br/>🔄 in_progress<br/>dev-build-flash"]
+    t145["t145<br/>✅ completed<br/>dev-runtime-goat"]
+    t146["t146<br/>✅ completed<br/>dev-build-flash"]
+    t147["t147<br/>✅ completed<br/>kiem-thu-goat"]
   end
   subgraph W2["Song 2"]
     direction TB
@@ -450,6 +451,7 @@ flowchart LR
   t142 --> t143
   t144 --> t145
   t144 --> t146
+  t144 --> t147
   t3 -.->|rework| t14
   t4 -.->|follow-up| t15
   t4 -.->|rework| t16
@@ -620,8 +622,9 @@ flowchart LR
 | 1 | t60 | ✅ completed | dev-ui-goat | — | t57 (sequence) |
 | 1 | t129 | ✅ completed | dev-runtime-goat | t128 | t128 (follow-up) |
 | 1 | t139 | ✅ completed | dev-ui-goat | — | t128 (repair) |
-| 1 | t145 | 🔄 in_progress | dev-runtime-goat | t144 | — |
-| 1 | t146 | 🔄 in_progress | dev-build-flash | t144 | — |
+| 1 | t145 | ✅ completed | dev-runtime-goat | t144 | — |
+| 1 | t146 | ✅ completed | dev-build-flash | t144 | — |
+| 1 | t147 | ✅ completed | kiem-thu-goat | t144 | — |
 | 2 | t3 | ✅ completed | dev-runtime-flash | t2 | — |
 | 2 | t4 | ✅ completed | dev-tools-flash | t2 | — |
 | 2 | t130 | ✅ completed | dev-build-flash | t129 | t129 (pack) |

@@ -834,3 +834,22 @@ Các vòng trước đột biến SẢN PHẨM rồi xem cổng có đỏ. Lư�
 3. **Cấu trúc DOM mới phải xoá dấu vết cũ**: t142 xoá hẳn `panelColumns`/`panelColumnAside` khỏi mã và CSS, và t143 được giao phép kiểm byte rằng `data-panel-columns` xuất hiện 0 lần trong bundle bản cài — nếu để lại, một bố cục cũ có thể 'sống sót' trong khuyết điểm mà không cổng nào thấy.
 4. **`agent_teams_update_task` từ chối `completed` + `needs_revision`**: audit-goat đúng khi đóng t141 bằng `status=failed` + verdict `needs_revision`. Ghi vào luật để lần sau không mất lượt thử.
 5. **Ngưỡng `@container` không tên đo container gần nhất, không phải phần tử đang style**: `@container (width>=800px){.team[data-workspace-team]{…}}` đo container TỔ TIÊN gần nhất có `container-type` (ở workspace là `.eDfHrq_root`), không đo `.team`. Đây là rủi ro đã khai trong `docs/kiem-thu/t142-three-columns.md`; nếu sau này chèn container khác thì ngưỡng có thể sai phần tử.
+
+## Vòng 23 (phần 2) — bài học từ t145
+
+1. **Đột biến 0 byte mới là phép thử đúng cho khoảng mù ngữ nghĩa**: đổi `minmax(0,2fr)`→`minmax(0,1fr)` trong CSS NHÚNG giữ nguyên số byte (256 ký tự → 256), nên mọi cổng so byte/build đều im lặng; chỉ phép so NGỮ NGHĨA mới bắt. Luật: với mỗi lớp dữ liệu bị SAO CHÉP (CSS nhúng vs tệp nguồn, DTO vs render), phải có một assertion so hai bản THEO NGHĨA, không chỉ so hash tệp.
+2. **`originAt()` lấy segment cuối có `genCol <= column`** ⇒ một anchor đặt ở cột 45 không bao giờ chạm segment bắt đầu ở cột 40; nếu muốn phủ dấu `(` của call site phải có anchor riêng với `maxLead`. Anchor thiếu segment là khoảng mù im lặng: test vẫn xanh, mapping sai vẫn lọt.
+3. **Doc lịch sử phải đánh dấu là lịch sử, không sửa số cũ**: t128 doc có số của vòng trước; member ghi rõ 'mục 1–5 là số lịch sử' thay vì viết lại — đúng hơn là làm cho quá khứ trông như hiện tại.
+
+## Vòng 23 (phần 4) — chấm t146/t147 và đóng phiên
+
+1. **Bảng sweep phải đếm được cả nhóm chạy lâu**: 9 suite pack (npm pack + cài profile + boot thật) bị xếp nhầm vào 'fast' nên `--run` sinh FAIL(timeout) GIẢ — t146 tách thành nhóm **PACK** riêng (`skipped(pack)=9`, chạy lại bằng `--include-live`). Luật: một suite vượt cửa sổ thời gian phải nằm ở nhóm riêng, không bao giờ để nó làm đỏ bảng mặc định.
+2. **Ngoại lệ LEGACY phải kiểm được bằng máy**: `exceptionProblems()` đòi `reason` + `fix` + citation `file:dòng` mở được; mục hỏng KHÔNG được whitelist mà rơi về FAIL thật (ca a26/a27 của `tests/t120-sweep-suites.mjs`). Đây là cách để 'xoá một ngoại lệ' không thể âm thầm biến thành 'xanh'.
+3. **Tài liệu phải trích nguyên văn từ mã, không diễn giải**: t147 chép đúng câu từ chối ghi của `lib/members.js` (offset 75 432) và lỗi CLI `profile "desktop" is managed exclusively by the Electron application`; tôi kiểm lại bằng grep trước khi chấm VERIFIED.
+4. **Câu hỏi mở phải nằm trong tài liệu, không nằm trong đầu người viết**: mục 5 'đã chứng minh / chưa chứng minh' liệt kê rõ phần chưa chứng minh (ví dụ DOM sống trong GUI do Host kiểm soát) thay vì để người đọc tự suy.
+
+## Vòng 23 (phần 5) — số liệu hồ sơ phải đếm lại bằng máy
+
+- Tôi từng ghi trong báo cáo 'cả 45 tệp Telegram đều có message id'. Đếm lại lần 1 (regex `message_?[Ii]d["\s:]*\s*\d+`) ra **38/47** — nhưng đó là regex SAI: các kỳ cũ dùng dạng `<!-- messageId=23 ... -->` (dấu `=`, camelCase).
+- Đếm lại lần 2 (regex `message[_ ]?id\s*[=:\s]\s*\d+`, không phân biệt hoa thường) ra **41/47**; 6 tệp `ky-10, ky-17, ky-18, ky-20, ky-21, ky-22` KHÔNG ghi id. Báo cáo nay ghi đúng 41/47 và nêu tên 6 kỳ thiếu.
+- Bài học: một con số tự khai trong hồ sơ phải được ĐẾM LẠI bằng regex đúng định dạng thật của dữ liệu; regex sai cho ra 'đã kiểm' giả và làm mọi kết luận sau đó lệch.

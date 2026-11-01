@@ -545,3 +545,34 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | `.eDfHrq_content` | `max-width:none` (trước là `1400px`) |
 | suite captain tự chạy | t128 22/22 · t10 50/50 · t129 13/13 · t114 16/16 · t113 38/38 · t98 `--strict` GREEN |
 | mutation `2fr`→`1fr` (−1 B) | t128 18/22 EXIT 1, FAIL C1+C2+B3+X2; phục hồi `identical` |
+
+## Vòng 23 (phần 2) — captain chấm t145 (cổng ngữ nghĩa cho CSS nhúng)
+
+| Phép đo | Kết quả |
+| --- | --- |
+| sha+bytes 2 tệp t145 | `t128` `633ba1fe…`/46 022 · doc `c35bd4d8…`/15 885 (khớp khai báo) |
+| suite captain tự chạy | t128 **28/28** · t10 50/50 · t129 13/13, tất cả EXIT 0 |
+| lib drift 9 dòng kiểm | 0/9 — `client.js` `7dca20dd…`/258 790 vẫn nguyên |
+| mutation CHỈ CSS NHÚNG (delta 0 B) | t128 EXIT 1, FAIL **C7** + **C8** ⇒ khoảng mù V23-F1 nay bị bắt trực tiếp, không nhờ B3 |
+| phục hồi | `identical=true` `7dca20dd1edf2c66…`/258 790 |
+
+## Vòng 23 (phần 3) — captain chấm t146 (sweep sạch FAIL)
+
+| Phép đo | Kết quả |
+| --- | --- |
+| sha+bytes 3 tệp t146 | `sweep-suites.mjs` `59d6bd18…`/51 013 · `t120` `ecd67973…`/35 541 · doc `cf603951…`/16 025 (khớp khai báo) |
+| `sweep-suites.mjs --run` (captain) | EXIT 0 · `PASS=44 FAIL=0 LEGACY=16 UNCLASSIFIED=0 skipped(live)=10 skipped(pack)=9 DRIFT=0` · `boot sessions executed: 0` · grep `^FAIL ` = 0 |
+| `--list` | `79 suite(s) = 10 LIVE + 9 pack + 47 fast; legacy exceptions: 16` |
+| `tests/t120-sweep-suites.mjs` | 28/28 (a26/a27/a28 mới) |
+| lib drift | 0/7 dòng kiểm — `client.js` `7dca20dd…`/258 790 nguyên |
+| đánh đổi đã khai | 9 suite pack rời `--run` mặc định (chạy lại bằng `--include-live`) để hết FAIL(timeout) giả |
+
+## Vòng 23 (phần 4) — captain chấm t147 (tài liệu ERP) và đóng phiên
+
+| Phép đo | Kết quả |
+| --- | --- |
+| `docs/huong-dan/dung-voi-erp.md` | `f54a570d…`/17 466 B · 256 dòng · 7 heading |
+| `docs/kiem-thu/t147-doc-erp.md` | `a72124c7…`/6 357 B · 85 dòng |
+| `check-doc-paths` | EXIT 0 · `paths=114 paths_missing=0 links=41` |
+| đối chiếu câu từ chối ghi | có thật trong `lib/members.js` offset 75 432 (`count=1` cho `not one the plugin owns` và `nothing was written`) |
+| trạng thái cuối | 147 card: 140 VERIFIED · 4 CANCELLED · 3 SUPERSEDED · 1 FAILED (t141) · 0 mở |

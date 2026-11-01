@@ -1,6 +1,6 @@
-# t120 — quét toàn bộ suite và phân loại (sweep-suites) — F2/F7 vòng 19, V21-F1/F3/F4/F5 vòng 21
+# t120 — quét toàn bộ suite và phân loại (sweep-suites) — F2/F7 vòng 19, V21-F1/F3/F4/F5 vòng 21, V23-F3/F4 vòng 23
 
-Công cụ `tools/sweep-suites.mjs` · suite kiểm công cụ `tests/t120-sweep-suites.mjs` (25 ca) · fixture `tests/tmp/t120/`.
+Công cụ `tools/sweep-suites.mjs` · suite kiểm công cụ `tests/t120-sweep-suites.mjs` (28 ca) · fixture `tests/tmp/t120/`.
 CLI: `--list` (mặc định, không chạy gì) · `--run [--only a,b] [--timeout ms] [--include-live] [--run-legacy] [--strict] [--frozen-root dir] [--root dir] [--extra-root dir] [--exceptions f.json] [--manifest f.json] [--json]`.
 Exit code công cụ: 0 = không FAIL và không UNCLASSIFIED và (nếu `--strict`) không WARN · 1 = có FAIL · 2 = công cụ hỏng · 3 = CHỈ có UNCLASSIFIED, hoặc `--strict` gặp WARN (mã 3 là phần MỞ RỘNG; khác 0 nên không bao giờ là xanh).
 ## V19-F2 — lấy mẫu bảng 13 tệp TRƯỚC và SAU **mỗi** suite
@@ -43,7 +43,7 @@ Lý do phải tách: `tests/t56-types-fallback.mjs:435-441` cố ý chạy **c�
 ## `--list` trên repo (EXIT 0)
 ```
 scan roots (2): tests + packages/dsh-agent-teams/tests
-totals: 77 suite(s) = 10 LIVE + 67 fast; legacy exceptions: 12
+totals: 79 suite(s) = 10 LIVE + 9 pack + 47 fast; legacy exceptions: 16
 LIVE group (10): t11-http-e2e, t18-hot-switch-e2e, t27-rollback, t45-clear-live-e2e, t51-fallback-live-e2e,
                t59-erp-live-copy, t82-erp-migrate-live, t106-erp-live-roundtrip,
                packages/dsh-agent-teams/tests/t135-pack.mjs  (mỗi tên đều in kèm signal)
@@ -51,7 +51,7 @@ LIVE group (10): t11-http-e2e, t18-hot-switch-e2e, t27-rollback, t45-clear-live-
 LIVE nhận diện bằng dấu hiệu máy đọc trong tệp: `cli-harness` (`DESKTOP_CLI|dsh-cli.mjs`) + `powershell-spawn` + `json-stdin-boot` (`--json` và `-`),
 loại nếu có `pack-runner` (`npm.cmd`) hoặc `patch-caps` (`--patch`). Không hardcode danh sách: cột signal in ra từng suite.
 Nhóm này là SUPERSET 6 tên card nêu — thêm `t27-rollback` và `t51-fallback-live-e2e` (cả hai có đủ 3 dấu hiệu boot).
-## 25 ca của suite kiểm công cụ (EXIT 0 · `25/25 cases: 25 passed, 0 failed`)
+## 28 ca của suite kiểm công cụ (EXIT 0 · `28/28 cases: 28 passed, 0 failed`)
 
 a1–a15 (giữ nguyên từ t120 gốc): PASS/FAIL/UNCLASSIFIED · timeout · exception LEGACY không được chạy · near-miss · `--list` không chạy gì · `--only` · tệp thiếu · exit 2 khi tham số/ngoại lệ/root hỏng · hai đối chứng âm (sửa fixture, xoá ngoại lệ) · nhóm LIVE · repo thật 66 suite · ghi đè nhóm có lý do.
 a16–a20 (mới cho vòng 19):
@@ -62,13 +62,46 @@ a16–a20 (mới cho vòng 19):
 | a17 | F2 đối chứng: fixture không ghi ⇒ PASS, `drift=[]`, `sampled=true`, exit 0 (lấy mẫu theo CỬA SỔ, không ghim bảng) | `toolExit=0` |
 | a18 | F7 mặc định: `warnCount=1`, in nguyên văn, exit vẫn 0 | `listed=true` |
 | a19 | F7 `--strict`: có WARN ⇒ KHÔNG xanh | `toolExit=3` `explained=true` |
-| a20 | Không phá hành vi cũ: `--list` đúng 12 LEGACY, không chạy gì | `legacyRows=12` `listExit=0` |
-| a24 | V21-F1: `--list` công bố gốc quét; suite trong package hiện ra | `roots=["tests","packages/dsh-agent-teams/tests"]` `rows=77` `packFile="packages/dsh-agent-teams/tests/t130-pack.mjs"` |
+| a20 | Không phá hành vi cũ: `--list` đúng 16 LEGACY, không chạy gì | `legacyRows=16` `listExit=0` |
+| a24 | V21-F1: `--list` công bố gốc quét; suite trong package hiện ra | `roots=["tests","packages/dsh-agent-teams/tests"]` `rows=79` `packFile="packages/dsh-agent-teams/tests/t130-pack.mjs"` |
 | a25 | V21-F1: `t130-pack.mjs` rơi vào LEGACY chứ không FAIL, `ran=false`, kèm citation `:395` | `verdict=LEGACY ran=false toolExit=0` |
 
-## LEGACY nhúng sẵn (12 — pack suite ghim hash vòng cũ, đỏ theo thiết kế)
+## V23-F3 — một ngoại lệ không mở được thì KHÔNG phải ngoại lệ
+
+Audit t144 chạy `--run` trên repo thật và thấy `PASS=53 FAIL=4 LEGACY=12`, trong đó **cả 4 FAIL đều là cổng LỊCH SỬ** (t132 panel runtime ghim thứ tự 5 sibling của panel hai cột + profile `agent-teams-pack19`; t132-panel-dom-order là wrapper của nó; t133 chạy lại artifact đã ghi của t132; t140-pack ghim bộ byte vòng 22). Bảng sweep vì thế đọc như 4 hồi quy thật ⇒ dễ che lỗi thật về sau.
+
+Hai việc đã làm:
+
+1. **Bốn mục LEGACY** cho đúng bốn suite lịch sử đó, mỗi mục đủ `reason` + `fix` + `citation file:dòng` (xem mục LEGACY ở trên). Không suite nào đang kiểm sản phẩm hiện hành bị thêm ngoại lệ: `t143-pack.mjs` (vòng 23) vẫn nằm ngoài danh sách.
+2. **Kiểm chứng ngoại lệ** (`exceptionProblems()` trong công cụ): mỗi mục LEGACY phải có `reason`, `fix`, và `citation` đúng dạng `file:dòng`; tệp được dẫn phải TỒN TẠI và dòng được dẫn phải nằm trong phạm vi tệp. Mục nào không đạt thì **không whitelist suite đó**: suite chạy thật, row bị báo `FAIL` với `note` nêu lý do từ chối, output in mục `== INVALID legacy exceptions (N) ==`, và cả `--run` lẫn `--list` đều KHÔNG xanh. Nhờ vậy một `citation` bị xoá không thể lặng lẽ biến thành LEGACY.
+
+Hai ca mới trong `tests/t120-sweep-suites.mjs` (fixture chạy thật):
+
+| Ca | Chứng minh | Bằng chứng |
+|---|---|---|
+| a26 | Ngoại lệ LEGACY **thiếu citation** không whitelist: suite chạy thật, row = FAIL, công cụ nêu lý do từ chối, exit 1 | `verdict=FAIL ran=true problem="missing citation" toolExit=1` + `INVALID legacy exceptions` trong output |
+| a27 | Danh sách có 2 ngoại lệ ⇒ cả hai LEGACY, exit 0; **xoá 1 mục** ⇒ đúng suite bị xoá rơi vào FAIL thật (`ran=true`, exit 1), mục còn lại vẫn LEGACY, tool exit 1 | `bothExit=0 (kept=LEGACY, dropped=LEGACY)` `oneDeletedExit=1 (kept=LEGACY, dropped=FAIL, ran=true, suiteExit=1)` |
+| a28 | Suite chạy `npm pack` + boot nằm trong nhóm **PACK** riêng: `--list` group=pack, `--run` KHÔNG chạy (verdict `SKIPPED-PACK`, `ran=false`), không bị tính PASS/FAIL, tool exit 0 | `listGroup=pack legacy=false runVerdict=SKIPPED-PACK ran=false counts={"PASS":0,"FAIL":0,"PACK":1} toolExit=0` |
+
+Bảng trước/sau trên repo thật (chỉ đổi phân loại, không suite nào bị sửa):
+
+| | trước (audit t144) | sau |
+|---|---|---|
+| suite trong bảng | 79 | 79 |
+| LEGACY | 12 | **16** |
+| FAIL | 4 (toàn bộ là cổng lịch sử) | **0** |
+| boot | 0 | 0 |
+### V23-F3(b) — nhóm PACK: suite build bản phát hành không nằm trong một `--run` không điều kiện
+
+`t143-pack.mjs` (và 8 pack suite cũ còn xanh) spawn `npm pack`, cài vào profile rồi BOOT một session thật. Chạy chúng trong `--run` vừa tốn quota vừa vượt cửa sổ 120 s/suite của công cụ (một vòng pack đầy đủ mất hàng phút) ⇒ hàng của chúng thành `FAIL(timeout)`, tức một hồi quy GIẢ đúng như lớp lỗi V23-F3.
+
+Nay suite khớp dấu hiệu `pack-runner` (`npm.cmd`) được xếp **nhóm `pack`** — cùng họ với `live`: vẫn hiện trong bảng, vẫn in tên ở mục `PACK group (N)`, **không** phải LEGACY, **không** phải PASS, mặc định KHÔNG chạy; `--include-live` chạy được. Summary thêm `skipped(pack)=N`, `--list` in `X LIVE + Y pack + Z fast`.
+
+Hệ quả phải khai thật: 9 suite pack (t29, t42, t52, t63, t68, t72, t75, t78, t143) rời khỏi phần `--run` mặc định — trước đó 8 suite đầu được chạy và xanh. Bù lại bảng sweep không còn khả năng sinh FAIL(timeout) giả, và bản phát hành vẫn được chứng minh bởi chính suite pack của vòng (lệnh verify của card đó), không phải bởi sweep.
+## LEGACY nhúng sẵn (16 — 8 pack suite ghim hash vòng cũ + 4 mục V20-F3/V21-F1 + 4 mục V23-F3)
 `t35-pack-repack:39` · `t84-pack:51` · `t88-pack:57` · `t92-pack:57` · `t96-pack:57` · `t100-pack:57` · `t104-pack:58` · `t108-pack:59` ·
-`t118-pack:49` (V20-F3) · `packages/dsh-agent-teams/tests/t111-pack.mjs:79` (V21-F1) · `packages/dsh-agent-teams/tests/t121-pack.mjs:380` · `packages/dsh-agent-teams/tests/t130-pack.mjs:395`.
+`t118-pack:49` (V20-F3) · `packages/dsh-agent-teams/tests/t111-pack.mjs:79` (V21-F1) · `packages/dsh-agent-teams/tests/t121-pack.mjs:380` · `packages/dsh-agent-teams/tests/t130-pack.mjs:395` ·
+**V23-F3** (audit t144): `tests/t132-panel-runtime.mjs:36` · `tests/t132-panel-dom-order.mjs:10` · `tests/t133-analyze-idempotent.mjs:15` · `packages/dsh-agent-teams/tests/t140-pack.mjs:399`.
 `t118-pack` vào LEGACY từ V20-F3 vì nó ghim artefact vòng 18 — **bản kiểm artefact ĐANG phát hành là suite pack của vòng hiện hành** (nay: `packages/dsh-agent-teams/tests/t135-pack.mjs`), và suite đó nằm trong nhóm LIVE chứ không LEGACY.
 `t130-pack.mjs` chọn LEGACY thay vì re-pin: xem lý do ghi ngay trong tệp đó (re-pin sẽ tuyên bố byte vòng 20 mang map vòng 21, và A7 vẫn so với bản cài vòng 20 nên vẫn đỏ).
 ## Trạng thái t118 sau t124
@@ -84,3 +117,5 @@ a16–a20 (mới cho vòng 19):
 7. a16 dùng BẢN SAO trong `tests/tmp/t120/frozen-copy`; a13 chạy toàn bộ fixture nên bản sao đã tăng 1 byte trước a16 — ca này chỉ so `bytesAfter = bytesBefore + 1`, không giả định bản sao nguyên vẹn.
 8. `WARN_FIXTURE` là phép suy luận theo phần thân dòng: một WARN CỦA CỔNG mà thân trùng với một FATAL/ERROR trong cùng suite sẽ bị xếp vào fixture (đánh đổi có chủ ý để `t56` không đỏ vĩnh viễn).
 9. Gốc quét tự phát hiện chỉ đi đúng một cấp `packages/*/tests`; suite nằm sâu hơn phải khai bằng `--extra-root`.
+10. Nhóm `pack` mặc định KHÔNG chạy (V23-F3b): bảng sweep vì thế không còn kiểm phần "pack + cài + boot" của các vòng cũ; muốn kiểm thì `--include-live` và chấp nhận thời gian/quota.
+11. Kiểm citation của ngoại lệ chỉ xác nhận tệp tồn tại và dòng nằm trong phạm vi — nó KHÔNG đọc nội dung dòng để xem lý do có đúng; lý do vẫn do người khai và do reviewer đọc.

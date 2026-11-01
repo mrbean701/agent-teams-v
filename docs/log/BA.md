@@ -212,3 +212,9 @@ Vì `lib/client.js.map` đổi ⇒ bộ byte phát hành đổi ⇒ phải pack 
 - **Vì sao không 'sửa nhỏ trong vòng 22'**: bố cục là thứ người dùng nhìn thấy; sửa `lib/client.js`/CSS rồi giữ verdict cũ là tuyên bố sai về bộ byte đang chạy. Byte đổi ⇒ verdict phải đổi.
 - **Phạm vi vòng 23**: t142 chỉ đổi 5 tệp (3 nguồn + bundle + map) + 3 pin + 1 doc; 10 tệp còn lại của bảng đóng băng phải nguyên byte — t143 có phép kiểm riêng cho việc đó (A3/A4).
 - **Rủi ro chính**: bố cục mới phụ thuộc `@container` KHÔNG có tên; nếu Host chèn container khác giữa panel và `section.team` thì ngưỡng 800px đo sai phần tử và người dùng lại thấy bố cục dọc. Đã khai trong `docs/kiem-thu/t142-three-columns.md`; t143 phải chứng minh bằng BYTE trong bản cài rằng CSS 1:2 thực sự nằm trong bundle phát hành.
+
+## Vòng 23 (phần 4) — vì sao đóng ở đây
+
+- **Ba yêu cầu gốc đều đã có bằng chứng đầu-cuối**: (1) đổi model khi member ĐANG CHẠY — `tests/t18` + `t138` (notice `[model changed: …]`, `request/header` trước/sau, attemptId trong transcript) và boot thật trên bản copy `team.json` ERP; (2) thêm member thủ công — `agent_teams_add_member` + panel Add member có ca `t21`/`t70`; (3) tương thích `team.json` ERP — boot sống trên 14 member (7 `removed` vẫn hiển thị) / 107 task, đọc được trường lạ `routeOverride{source:'erp'}`, ghi chỉ nhận `captain|http|profile` (tệp ERP gốc không đổi sha).
+- **Chất lượng đóng bằng đo, không bằng lời khai**: audit vòng 23 PASS; t145 đóng khoảng mù CSS nhúng (đột biến 0 byte bị bắt); t146 làm bảng sweep sạch FAIL (`PASS=44 FAIL=0 LEGACY=16 skipped(pack)=9`); t147 viết tài liệu vận hành trích nguyên văn từ mã.
+- **Vì sao dừng**: người dùng yêu cầu 'làm xong thì dừng'; không còn finding medium/high mở; hai việc còn lại đều cần người dùng quyết (publish npm; restart cứng app) nên không tự làm.

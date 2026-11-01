@@ -89,6 +89,9 @@ const FIXTURES = {
     't120-fake-odd.mjs': "console.error('fake odd suite exits 2');\nprocess.exit(2);\n",
     't120-fake-slow.mjs': "const t0 = Date.now();\nwhile (Date.now() - t0 < 60000) { /* hang on purpose */ }\nprocess.exit(0);\n",
     't120-fake-legacy.mjs': "console.error('legacy artefact suite: pinned to an older round');\nprocess.exit(1);\n",
+    // V23-F3: a second historical suite, so a case can delete ONE exception and watch exactly one row
+    // fall back into FAIL while the other stays LEGACY.
+    't120-fake-legacy-2.mjs': "console.error('second legacy artefact suite: pinned to an older round');\nprocess.exit(1);\n",
     't120-fake-nearmiss.mjs': "console.error('near miss: the exceptions list names another suite');\nprocess.exit(1);\n",
     't120-fake-sideeffect.mjs': [
         "import { mkdirSync, writeFileSync } from 'node:fs';",
@@ -152,6 +155,13 @@ async function prepareFixtures() {
                 citation: 'tests/tmp/t120/fixtures/t120-fake-legacy.mjs:1',
                 fix: 're-pin the fixture when the fixture round moves',
             },
+            {
+                suite: 't120-fake-legacy-2.mjs',
+                args: [],
+                reason: 'second fixture pinned to an older round; red by design',
+                citation: 'tests/tmp/t120/fixtures/t120-fake-legacy-2.mjs:1',
+                fix: 're-pin the fixture when the fixture round moves',
+            },
         ],
     };
     await writeFile(join(TMP, 'exceptions.json'), JSON.stringify(exceptions, null, 2), 'utf8');
@@ -170,6 +180,18 @@ async function prepareFixtures() {
     await writeFile(join(TMP, 'exceptions-override.json'), JSON.stringify(override, null, 2), 'utf8');
     await writeFile(join(TMP, 'manifest.json'), JSON.stringify({ suites: ['t120-fake-pass.mjs', 't120-fake-odd.mjs', { suite: 't120-fake-gone.mjs', file: ROOT_REL + '/t120-fake-gone.mjs' }] }, null, 2), 'utf8');
     await writeFile(join(TMP, 'exceptions-empty.json'), JSON.stringify({ version: 1, entries: [] }, null, 2), 'utf8');
+    // V23-F3 fixtures: three files that differ ONLY in what the exception list can prove.
+    const legacyEntry = (name, line) => ({
+        suite: name,
+        args: [],
+        reason: 'fixture pinned to an older round; red by design',
+        citation: ROOT_REL + '/' + name + ':' + line,
+        fix: 're-pin the fixture when the fixture round moves',
+    });
+    await writeFile(join(TMP, 'exceptions-two.json'), JSON.stringify({ version: 1, entries: [legacyEntry('t120-fake-legacy.mjs', 1), legacyEntry('t120-fake-legacy-2.mjs', 1)] }, null, 2), 'utf8');
+    await writeFile(join(TMP, 'exceptions-one.json'), JSON.stringify({ version: 1, entries: [legacyEntry('t120-fake-legacy.mjs', 1)] }, null, 2), 'utf8');
+    const noCite = { suite: 't120-fake-legacy.mjs', args: [], reason: 'fixture claim WITHOUT a citation: it must not whitelist anything', fix: 'add the file:line that proves the claim' };
+    await writeFile(join(TMP, 'exceptions-nocite.json'), JSON.stringify({ version: 1, entries: [noCite] }, null, 2), 'utf8');
     await writeFile(join(TMP, 'exceptions-broken.json'), '{ not json at all', 'utf8');
 }
 
@@ -209,7 +231,7 @@ await prepareFixtures();
         'verdict=' + (row && row.verdict) + ' note=' + (row && row.note) + ' wallMs=' + elapsed + ' toolExit=' + run.code);
 }
 {
-    const run = runTool([...ROOT_ARGS, ...EXC, '--run', '--timeout', '20000', '--only', 'fake-legacy', '--json']);
+    const run = runTool([...ROOT_ARGS, ...EXC, '--run', '--timeout', '20000', '--only', 'fake-legacy.mjs', '--json']);
     const printed = /tests\/tmp\/t120\/fixtures\/t120-fake-legacy\.mjs:1/.test(run.out) && /reason:/.test(run.out) && /fix:/.test(run.out);
     const row = rowFor(run.json, 't120-fake-legacy.mjs');
     check('a5', 'exception LEGACY khop => LEGACY, in nguyen van reason+citation+fix, tool exit 0',
@@ -399,8 +421,8 @@ await prepareFixtures();
     const rows = Array.isArray(list.json && list.json.rows) ? list.json.rows : [];
     const legacy = rows.filter((row) => row.legacy === true);
     const reposRun = runTool(['--list']);
-    check('a20', 'F7/F2/V21-F1 khong pha hanh vi cu: danh sach ngoai le mac dinh dung 12 LEGACY (8 pack suite cu + t118-pack tu V20-F3 + t111/t121/t130-pack tu V21-F1), --list van khong chay gi',
-        legacy.length === 12 && list.code === 0 && /legacy exceptions: 12/u.test(reposRun.out),
+    check('a20', 'F7/F2/V21-F1/V23-F3 khong pha hanh vi cu: danh sach ngoai le mac dinh dung 16 LEGACY (8 pack suite cu + t118-pack tu V20-F3 + t111/t121/t130-pack tu V21-F1 + t132-panel-runtime/t132-panel-dom-order/t133/t140-pack tu V23-F3), --list van khong chay gi',
+        legacy.length === 16 && list.code === 0 && /legacy exceptions: 16/u.test(reposRun.out),
         'legacyRows=' + legacy.length + ' names=' + legacy.map((row) => row.suite).join(',') + ' listExit=' + list.code);
 }
 
@@ -431,6 +453,53 @@ await prepareFixtures();
     check('a25', 'V21-F1: t130-pack.mjs roi vao LEGACY (khong phai FAIL), ran=false, keo theo citation file:dong va ly do vong 20, tool exit 0',
         row !== undefined && row.verdict === 'LEGACY' && row.ran === false && cited && run.code === 0,
         'verdict=' + (row && row.verdict) + ' ran=' + (row && row.ran) + ' cited=' + cited + ' toolExit=' + run.code);
+}
+
+{
+    // V23-F3 (a): an exception that cannot be opened is not an exception. The claim in this fixture has a
+    // reason and a fix but NO citation, so the suite must NOT be whitelisted: it runs for real, its row is
+    // FAIL, the tool says why it refused the claim, and the run is not green.
+    const run = runTool([...ROOT_ARGS, '--exceptions', 'tests/tmp/t120/exceptions-nocite.json', '--run', '--timeout', '20000', '--only', 'fake-legacy.mjs', '--json']);
+    const row = rowFor(run.json, 't120-fake-legacy.mjs');
+    const refused = row !== undefined && row.exceptionProblem !== undefined && /citation/u.test(String(row.exceptionProblem));
+    check('a26', 'V23-F3: ngoai le LEGACY THIEU citation KHONG duoc whitelist => suite chay that, bi bao FAIL, tool exit 1 va in ro ly do tu choi',
+        refused && row.verdict === 'FAIL' && row.ran === true && run.code === 1 && /INVALID legacy exceptions/u.test(run.out),
+        'verdict=' + (row && row.verdict) + ' ran=' + (row && row.ran) + ' problem=' + JSON.stringify(row && row.exceptionProblem) + ' toolExit=' + run.code);
+}
+{
+    // V23-F3 (b): deleting ONE exception must drop exactly that suite back into FAIL, while the one still
+    // listed stays LEGACY. Two throw-away directories hold the only difference: the exception list.
+    const both = runTool([...ROOT_ARGS, '--exceptions', 'tests/tmp/t120/exceptions-two.json', '--run', '--timeout', '20000', '--only', 'fake-legacy', '--json']);
+    const one = runTool([...ROOT_ARGS, '--exceptions', 'tests/tmp/t120/exceptions-one.json', '--run', '--timeout', '20000', '--only', 'fake-legacy', '--json']);
+    const keptBefore = rowFor(both.json, 't120-fake-legacy.mjs');
+    const droppedBefore = rowFor(both.json, 't120-fake-legacy-2.mjs');
+    const keptAfter = rowFor(one.json, 't120-fake-legacy.mjs');
+    const droppedAfter = rowFor(one.json, 't120-fake-legacy-2.mjs');
+    check('a27', 'V23-F3: co 2 ngoai le => ca hai LEGACY va tool exit 0; XOA 1 muc => suite bi xoa roi vao FAIL that (ran=true, exit 1), muc con lai van LEGACY, tool exit 1',
+        both.code === 0 && keptBefore !== undefined && keptBefore.verdict === 'LEGACY' && droppedBefore !== undefined && droppedBefore.verdict === 'LEGACY'
+            && keptAfter !== undefined && keptAfter.verdict === 'LEGACY'
+            && droppedAfter !== undefined && droppedAfter.verdict === 'FAIL' && droppedAfter.ran === true && droppedAfter.exitCode === 1
+            && one.code === 1,
+        'bothExit=' + both.code + ' (kept=' + (keptBefore && keptBefore.verdict) + ', dropped=' + (droppedBefore && droppedBefore.verdict) + ')'
+            + ' | oneDeletedExit=' + one.code + ' (kept=' + (keptAfter && keptAfter.verdict) + ', dropped=' + (droppedAfter && droppedAfter.verdict) + ', ran=' + (droppedAfter && droppedAfter.ran) + ', suiteExit=' + (droppedAfter && droppedAfter.exitCode) + ')');
+}
+
+{
+    // V23-F3 (c): a suite that BUILDS the release (npm pack) and boots a session cannot be part of an
+    // unqualified --run: two packs plus a boot outlive the per-suite window and spend quota. It gets its own
+    // skipped group — visible in the table, never LEGACY, never PASS — and --include-live still runs it.
+    const listJson = runTool(['--list', '--json']);
+    const packRow = rowFor(listJson.json, 't143-pack.mjs');
+    const run = runTool(['--run', '--only', 't143-pack', '--timeout', '20000', '--json']);
+    const ranRow = rowFor(run.json, 't143-pack.mjs');
+    const counters = run.json === undefined ? {} : (run.json.counts ?? {});
+    check('a28', 'V23-F3(b): suite chay npm pack + boot nam trong nhom PACK rieng — --list group=pack, --run KHONG chay (verdict SKIPPED-PACK, ran=false), khong bi tinh la PASS/FAIL, tool exit 0',
+        packRow !== undefined && packRow.group === 'pack' && packRow.legacy === false
+            && ranRow !== undefined && ranRow.verdict === 'SKIPPED-PACK' && ranRow.ran === false
+            && (counters.PASS ?? 0) === 0 && (counters.FAIL ?? 0) === 0 && (counters.PACK ?? 0) === 1 && run.code === 0,
+        'listGroup=' + (packRow && packRow.group) + ' legacy=' + (packRow && packRow.legacy)
+            + ' | runVerdict=' + (ranRow && ranRow.verdict) + ' ran=' + (ranRow && ranRow.ran)
+            + ' counts=' + JSON.stringify(counters) + ' toolExit=' + run.code);
 }
 
 const failed = checks.filter((item) => item.ok !== true);

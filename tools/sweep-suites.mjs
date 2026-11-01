@@ -148,6 +148,13 @@ const DEFAULT_EXCEPTIONS = [
     // session, so a sweep must not spend quota on it by accident. Grouped live = still listed, still in
     // the table, skipped by default; a direct run or --include-live still executes it.
     {"suite":"t135-pack.mjs","args":[],"group":"live","reason":"current round (21) release suite: a plain run executes npm pack twice AND boots a real headless session, so it must not be swept silently; grouping it live keeps it visible in the table but skipped unless asked (V21-F1)","citation":"packages/dsh-agent-teams/tests/t135-pack.mjs:206","fix":"run it directly (node packages/dsh-agent-teams/tests/t135-pack.mjs --fresh) or pass --include-live; it must never be reclassified LEGACY while round 21 is the released set"},
+    // V23-F3: the round-22/23 layout rewrote the panel, so the round-19 runtime gate and the round-22
+    // pack suite pin bytes that no longer exist. They stay in the tree as history; they are not gates on
+    // today bytes, and a sweep that calls them FAIL reads like a regression that is not there.
+    {"suite":"t132-panel-runtime.mjs","args":[],"reason":"historical layout gate: it measures the FIVE-sibling order of the pre-t139 panel (ProgressOverview -> DependencyMap -> AddMemberControl -> member list -> WorkspaceSummary) on the INSTALLED bundle of profile agent-teams-pack19 and pins that bundle at 377bcea2/258432, so it is red against the round-23 three-block panel by design (V23-F3, audit t144)","citation":"tests/t132-panel-runtime.mjs:36","fix":"superseded for the shipped layout by tests/t128-panel-order.mjs (source order) and packages/dsh-agent-teams/tests/t143-pack.mjs A13 (byte proof on the installed bundle); keep this one to re-prove the round-19 panel on a machine that still has profile agent-teams-pack19, and never re-pin it to today bytes"},
+    {"suite":"t132-panel-dom-order.mjs","args":[],"reason":"thin wrapper: it forwards argv and the exit code to tests/t132-panel-runtime.mjs, so it inherits that suite's round-19 pins and fails for the same reason (V23-F3, audit t144)","citation":"tests/t132-panel-dom-order.mjs:10","fix":"no gate of its own; the wrapper name is the card name from t132. Run t132-panel-runtime.mjs directly if the round-19 panel proof is ever needed"},
+    {"suite":"t133-analyze-idempotent.mjs","args":[],"reason":"it re-runs the RECORDED round-19/20 t132 artifact at tests/tmp/t132/run-2026-11-01T04-08-52-492Z (a frozen run directory), so its A1/A12 fail as soon as the shipped bytes move on (V23-F3, audit t144)","citation":"tests/t133-analyze-idempotent.mjs:15","fix":"an idempotence proof of the t132 recorder on a byte set that no longer ships; re-record it only if the recorder itself is being changed, otherwise it proves nothing about round 23"},
+    {"suite":"t140-pack.mjs","args":[],"reason":"historical pack round: pins the round-22 byte set (lib/client.js.map b1693659, tarball 62ad2275 is round 23 so it differs) and installs into profile agent-teams-pack21, so it is red against today source by design (V23-F3/F4, audit t144)","citation":"packages/dsh-agent-teams/tests/t140-pack.mjs:399","fix":"round-22 artefact; superseded by packages/dsh-agent-teams/tests/t143-pack.mjs (round 23). Do NOT re-pin it: its A19 table compare is written against the round-22 rows and a re-pin would claim the round-22 bytes carry the round-23 map"},
 ];
 
 const LIVE_SIGNALS = [
@@ -179,6 +186,7 @@ function tailLines(text, count) {
 function detectLive(text) {
     const matched = [];
     let live = true;
+    let pack = false;
     for (const signal of LIVE_SIGNALS) {
         let hit;
         if (signal.all) hit = signal.all.every((re) => re.test(text));
@@ -187,13 +195,17 @@ function detectLive(text) {
             if (hit) {
                 matched.push('-' + signal.id);
                 live = false;
+                // V23-F3(b): a suite that runs `npm pack` builds the release AND boots a session, so it can
+                // never be part of an unqualified --run: two packs plus a boot outlast the per-suite timeout
+                // and spend quota. It is its own skipped group, never LEGACY and never PASS.
+                if (signal.id === 'pack-runner') pack = true;
             }
             continue;
         }
         if (hit) matched.push(signal.id);
         else live = false;
     }
-    return { live, signals: matched };
+    return { live, pack, signals: matched };
 }
 
 function discoverSuites(root) {
@@ -245,19 +257,55 @@ function readManifest(path, root) {
 }
 
 function loadExceptions(path) {
-    if (path === undefined) return { entries: DEFAULT_EXCEPTIONS, origin: 'embedded (tools/sweep-suites.mjs)' };
+    if (path === undefined) return { entries: DEFAULT_EXCEPTIONS, origin: 'embedded (tools/sweep-suites.mjs)', problems: exceptionProblems(DEFAULT_EXCEPTIONS) };
     const raw = readFileSync(path, 'utf8');
     const parsed = JSON.parse(raw);
     const list = Array.isArray(parsed) ? parsed : parsed.entries;
     if (!Array.isArray(list)) throw new Error('exceptions file has no entries array: ' + path);
     for (const entry of list) {
         if (typeof entry.suite !== 'string' || entry.suite.length === 0) throw new Error('exceptions entry without suite: ' + JSON.stringify(entry));
+    }
+    return { entries: list, origin: path, problems: exceptionProblems(list) };
+}
+
+/**
+ * V23-F3: a legacy exception is a CLAIM about one suite — that it is red for a named, openable reason.
+ * The claim is worth nothing without that reason and a file:line a reviewer can actually open, so both
+ * are required, the citation must be file:line, and the cited line must exist. An entry that fails this
+ * test does NOT whitelist its suite: the suite runs for real and the sweep cannot report green.
+ */
+const CITATION_RE = /^(.+):(\d+)$/u;
+function exceptionProblems(entries) {
+    const problems = [];
+    for (const entry of entries) {
         const legacy = entry.group === undefined || entry.group === 'legacy';
-        if (legacy && (typeof entry.reason !== 'string' || typeof entry.citation !== 'string')) {
-            throw new Error('legacy exception needs reason + citation: ' + entry.suite);
+        if (!legacy) continue;
+        const suite = String(entry.suite ?? '(no suite)');
+        const missing = [];
+        if (typeof entry.reason !== 'string' || entry.reason.trim() === '') missing.push('reason');
+        if (typeof entry.fix !== 'string' || entry.fix.trim() === '') missing.push('fix');
+        if (typeof entry.citation !== 'string' || entry.citation.trim() === '') missing.push('citation');
+        if (missing.length > 0) {
+            problems.push({ suite, problem: 'missing ' + missing.join('+'), citation: typeof entry.citation === 'string' ? entry.citation : '' });
+            continue;
+        }
+        const match = CITATION_RE.exec(entry.citation.trim());
+        if (match === null) {
+            problems.push({ suite, problem: 'citation is not file:line', citation: entry.citation });
+            continue;
+        }
+        const cited = resolve(REPO_ROOT, match[1]);
+        if (!existsSync(cited)) {
+            problems.push({ suite, problem: 'cited file does not exist', citation: entry.citation });
+            continue;
+        }
+        const lineCount = readFileSync(cited, 'utf8').split('\n').length;
+        const line = Number(match[2]);
+        if (!Number.isInteger(line) || line < 1 || line > lineCount) {
+            problems.push({ suite, problem: 'cited line ' + line + ' is outside the ' + lineCount + ' lines of the cited file', citation: entry.citation });
         }
     }
-    return { entries: list, origin: path };
+    return problems;
 }
 
 function parseArgs(argv) {
@@ -482,29 +530,37 @@ function main(argv) {
 
     const bySuite = new Map();
     for (const entry of exceptions.entries) bySuite.set(basename(entry.suite), entry);
+    // V23-F3: an entry that fails validation never whitelists its suite. The row keeps the reason it was
+    // rejected for, so the report says WHY it is red instead of quietly listing it as LEGACY.
+    const problemByName = new Map();
+    for (const problem of exceptions.problems ?? []) problemByName.set(basename(problem.suite), problem);
 
     const rows = [];
     for (const suite of discovered) {
         const exists = existsSync(suite.file);
         const text = exists ? readFileSync(suite.file, 'utf8') : '';
         const detection = exists ? detectLive(text) : { live: false, signals: ['missing'] };
-        const exception = bySuite.get(suite.name);
-        let group = detection.live ? 'live' : 'fast';
+        const invalidException = problemByName.get(suite.name);
+        const exception = invalidException === undefined ? bySuite.get(suite.name) : undefined;
+        let group = detection.live ? 'live' : detection.pack === true ? 'pack' : 'fast';
         let override = undefined;
         if (exception !== undefined && exception.group === 'live') { group = 'live'; override = 'exception'; }
         if (exception !== undefined && exception.group === 'fast') { group = 'fast'; override = 'exception'; }
+        if (exception !== undefined && exception.group === 'pack') { group = 'pack'; override = 'exception'; }
         const legacy = exception !== undefined && (exception.group === undefined || exception.group === 'legacy');
         rows.push({
             name: suite.name,
             file: suite.file,
             exists,
             origin: suite.origin,
-            group: group === 'live' ? 'live' : 'fast',
+            group,
             live: group === 'live',
+            pack: group === 'pack',
             signals: detection.signals,
             override,
-            legacy,
+            legacy: legacy && invalidException === undefined,
             exception,
+            invalidException,
             args: legacy && Array.isArray(exception.args) ? exception.args : [],
             ran: false,
             exitCode: null,
@@ -535,22 +591,32 @@ function main(argv) {
 
 function printList(rows, opts, exceptions) {
     const live = rows.filter((row) => row.group === 'live');
+    const pack = rows.filter((row) => row.group === 'pack' && row.legacy !== true);
     const fast = rows.filter((row) => row.group === 'fast');
     console.log('== suites under ' + (opts.manifestPath ?? opts.root) + ' (--list, nothing was executed) ==');
     console.log(pad('suite', 52) + pad('group', 8) + pad('legacy', 8) + 'signals');
     for (const row of rows) {
-        row.verdict = row.legacy ? 'LEGACY' : row.group === 'live' ? 'SKIPPED-LIVE' : 'SKIPPED-LEGACY';
-        console.log(pad(row.name, 42) + pad(row.group, 8) + pad(row.legacy ? 'LEGACY' : '-', 8) + (row.signals.join(',') || '-') + (row.override ? ' [override]' : '') + (row.exists ? '' : ' [MISSING]'));
+        row.verdict = row.invalidException !== undefined ? 'INVALID-EXCEPTION' : row.legacy ? 'LEGACY' : row.group === 'live' ? 'SKIPPED-LIVE' : row.group === 'pack' ? 'SKIPPED-PACK' : 'SKIPPED-LEGACY';
+        console.log(pad(row.name, 42) + pad(row.group, 8) + pad(row.invalidException !== undefined ? 'INVALID' : row.legacy ? 'LEGACY' : '-', 8) + (row.signals.join(',') || '-') + (row.override ? ' [override]' : '') + (row.exists ? '' : ' [MISSING]') + (row.invalidException !== undefined ? ' [invalid exception: ' + row.invalidException.problem + ']' : ''));
     }
     console.log('');
-    console.log('totals: ' + rows.length + ' suite(s) = ' + live.length + ' LIVE + ' + fast.length + ' fast; legacy exceptions: ' + rows.filter((row) => row.legacy).length);
+    console.log('totals: ' + rows.length + ' suite(s) = ' + live.length + ' LIVE + ' + pack.length + ' pack + ' + fast.length + ' fast; legacy exceptions: ' + rows.filter((row) => row.legacy).length);
     if (live.length > 0) {
         console.log('LIVE group (' + live.length + '): ' + live.map((row) => row.name).join(', '));
         console.log('they boot a real session and spend quota: skipped unless --include-live');
     }
+    if (pack.length > 0) {
+        console.log('PACK group (' + pack.length + '): ' + pack.map((row) => row.name).join(', '));
+        console.log('they run npm pack (and boot) so they cannot finish inside one sweep window: skipped unless --include-live');
+    }
     console.log('exceptions source: ' + exceptions.origin);
-    if (opts.json) console.log(JSON.stringify({ mode: 'list', roots: (opts.manifestPath !== undefined ? [] : (opts.rootExplicit === true ? [opts.root, ...opts.extraRoots] : [opts.root, ...discoverPackageTestRoots(), ...opts.extraRoots])).map(toPosixRel), rows: rows.map((row) => ({ suite: row.name, file: toPosixRel(row.file), group: row.group, legacy: row.legacy, signals: row.signals, exists: row.exists, ran: false, verdict: row.verdict })), exitCode: EXIT_GREEN }, null, 1));
-    return EXIT_GREEN;
+    const listProblems = exceptions.problems ?? [];
+    if (listProblems.length > 0) {
+        console.log('== INVALID legacy exceptions (' + listProblems.length + ') — not whitelisted, so --list is not green ==');
+        for (const problem of listProblems) console.log('  - ' + problem.suite + ': ' + problem.problem + ' | citation=' + (problem.citation || '(none)'));
+    }
+    if (opts.json) console.log(JSON.stringify({ mode: 'list', roots: (opts.manifestPath !== undefined ? [] : (opts.rootExplicit === true ? [opts.root, ...opts.extraRoots] : [opts.root, ...discoverPackageTestRoots(), ...opts.extraRoots])).map(toPosixRel), rows: rows.map((row) => ({ suite: row.name, file: toPosixRel(row.file), group: row.group, legacy: row.legacy, signals: row.signals, exists: row.exists, ran: false, verdict: row.verdict, exceptionProblem: row.invalidException === undefined ? null : row.invalidException.problem })), exceptionProblems: listProblems, exitCode: listProblems.length > 0 ? EXIT_REAL_FAIL : EXIT_GREEN }, null, 1));
+    return listProblems.length > 0 ? EXIT_REAL_FAIL : EXIT_GREEN;
 }
 
 function runAll(rows, opts, exceptions) {
@@ -569,7 +635,25 @@ function runAll(rows, opts, exceptions) {
     let boots = 0;
     let samples = 0;
     const skippedLive = [];
+    const skippedPack = [];
     for (const row of rows) {
+        if (row.invalidException !== undefined) {
+            // V23-F3: the claim was rejected, so the suite is NOT whitelisted. It runs like any other suite
+            // and its row is FAIL whatever it exits, because an unverifiable exception is never green.
+            if (row.exists) {
+                const outcome = runSuite(row, opts.timeoutMs);
+                row.ran = true;
+                row.exitCode = outcome.exitCode;
+                row.tail = outcome.tail;
+                row.elapsedMs = outcome.elapsedMs;
+                row.sessions = outcome.sessions;
+                boots += outcome.sessions.length;
+            }
+            row.verdict = 'FAIL';
+            row.note = 'INVALID legacy exception (' + row.invalidException.problem + '; citation='
+                + (row.invalidException.citation || '(none)') + '): the suite is not whitelisted, so this run cannot be green';
+            continue;
+        }
         if (row.legacy && !opts.runLegacy) {
             row.verdict = 'LEGACY';
             row.note = 'not executed (legacy exception)';
@@ -579,6 +663,12 @@ function runAll(rows, opts, exceptions) {
             skippedLive.push(row.name);
             row.verdict = 'SKIPPED-LIVE';
             row.note = 'not executed (live group)';
+            continue;
+        }
+        if (row.group === 'pack' && !opts.includeLive) {
+            skippedPack.push(row.name);
+            row.verdict = 'SKIPPED-PACK';
+            row.note = 'not executed (pack group: it runs npm pack and boots, so it outlives the per-suite timeout and spends quota); pass --include-live to run it';
             continue;
         }
         if (!row.exists) {
@@ -674,6 +764,15 @@ function runAll(rows, opts, exceptions) {
         console.log('');
     }
 
+    const problems = exceptions.problems ?? [];
+    if (problems.length > 0) {
+        console.log('== INVALID legacy exceptions (' + problems.length + ') — a claim without a verifiable file:line is not an exception ==');
+        for (const problem of problems) {
+            console.log('  - ' + problem.suite + ': ' + problem.problem + ' | citation=' + (problem.citation || '(none)'));
+        }
+        console.log('  these suites are NOT whitelisted: they run, and each one is reported FAIL');
+        console.log('');
+    }
     const legacy = rows.filter((row) => row.verdict === 'LEGACY');
     if (legacy.length > 0) {
         console.log('== LEGACY exceptions (' + legacy.length + ') — printed verbatim, not green ==');
@@ -689,17 +788,21 @@ function runAll(rows, opts, exceptions) {
     if (skippedLive.length > 0) {
         console.log('skipped (live): ' + skippedLive.length + ' suite — dung --include-live de chay: ' + skippedLive.join(', '));
     }
+    if (skippedPack.length > 0) {
+        console.log('skipped (pack): ' + skippedPack.length + ' suite — chung chay npm pack + boot nen khong the nam trong mot --run khong dieu kien; dung --include-live de chay: ' + skippedPack.join(', '));
+    }
     const counts = {
         PASS: rows.filter((row) => row.verdict === 'PASS').length,
         FAIL: rows.filter((row) => row.verdict === 'FAIL').length,
         LEGACY: legacy.length,
         UNCLASSIFIED: rows.filter((row) => row.verdict === 'UNCLASSIFIED').length,
         SKIPPED: rows.filter((row) => row.verdict === 'SKIPPED-LIVE').length,
+        PACK: rows.filter((row) => row.verdict === 'SKIPPED-PACK').length,
         WARN: warnTotal,
         WARN_FIXTURE: fixtureWarnTotal,
         DRIFT: drifted.length,
     };
-    console.log('summary: PASS=' + counts.PASS + ' FAIL=' + counts.FAIL + ' LEGACY=' + counts.LEGACY + ' UNCLASSIFIED=' + counts.UNCLASSIFIED + ' skipped(live)=' + counts.SKIPPED + ' WARN=' + counts.WARN + ' WARN_FIXTURE=' + counts.WARN_FIXTURE + ' DRIFT=' + counts.DRIFT);
+    console.log('summary: PASS=' + counts.PASS + ' FAIL=' + counts.FAIL + ' LEGACY=' + counts.LEGACY + ' UNCLASSIFIED=' + counts.UNCLASSIFIED + ' skipped(live)=' + counts.SKIPPED + ' skipped(pack)=' + counts.PACK + ' WARN=' + counts.WARN + ' WARN_FIXTURE=' + counts.WARN_FIXTURE + ' DRIFT=' + counts.DRIFT);
     console.log('boot sessions executed: ' + boots + (opts.includeLive ? ' (live group was included)' : ' (live group was NOT included)'));
     const exitCode = decideExit(rows, opts);
     console.log('tool exit code: ' + exitCode + ' (0 = green, 1 = at least one FAIL, 2 = tool broken, 3 = UNCLASSIFIED only or --strict with a gate WARN line; code 3 is a local extension, still non-zero so never green)');
@@ -730,6 +833,7 @@ function runAll(rows, opts, exceptions) {
                 hardSeverityLines: row.hardSeverityLines ?? [],
                 sampled: row.sampled,
                 drift: row.drift ?? [],
+                exceptionProblem: row.invalidException === undefined ? null : row.invalidException.problem,
             })),
             counts,
             boots,
