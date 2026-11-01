@@ -2,7 +2,7 @@
 
 > File sinh tu dong boi `node tools/dependency-report.mjs`. KHONG sua tay: sua du lieu goc roi chay lai.
 > Nguon: `.agent-teams/nami-agent-teams/team.json` (canh that) + `docs/provenance-tasks.json` (canh provenance).
-> Sinh luc: 2026-11-01T04:17:23.500Z · pha doi: **running** · 134 task / 15 member.
+> Sinh luc: 2026-11-01T05:10:19.703Z · pha doi: **running** · 137 task / 15 member.
 
 ## 1. Cach doc
 
@@ -54,20 +54,23 @@ flowchart LR
     t17["t17<br/>✅ completed<br/>dev-runtime-flash"]
     t18["t18<br/>✅ completed<br/>kiem-thu"]
     t21["t21<br/>✅ completed<br/>kiem-thu"]
-    t133["t133<br/>⬜ claimed<br/>kiem-thu-goat"]
-    t134["t134<br/>⬜ claimed<br/>dev-build-flash"]
+    t133["t133<br/>✅ completed<br/>kiem-thu-goat"]
+    t134["t134<br/>✅ completed<br/>dev-build-flash"]
   end
   subgraph W5["Song 5"]
     direction TB
     t19["t19<br/>✅ completed<br/>audit-kimi"]
+    t135["t135<br/>✅ completed<br/>dev-build-flash"]
   end
   subgraph W6["Song 6"]
     direction TB
     t11["t11<br/>✅ completed<br/>kiem-thu-goat"]
+    t136["t136<br/>✅ completed<br/>audit-goat"]
   end
   subgraph W7["Song 7"]
     direction TB
     t12["t12<br/>✅ completed<br/>audit-goat"]
+    t137["t137<br/>🔄 in_progress<br/>dev-build-flash"]
   end
   subgraph W8["Song 8"]
     direction TB
@@ -431,6 +434,9 @@ flowchart LR
   t130 --> t132
   t132 --> t133
   t131 --> t134
+  t134 --> t135
+  t135 --> t136
+  t136 --> t137
   t3 -.->|rework| t14
   t4 -.->|follow-up| t15
   t4 -.->|rework| t16
@@ -577,6 +583,9 @@ flowchart LR
   t130 -.->|verification| t132
   t132 -.->|repair| t133
   t131 -.->|repair| t134
+  t134 -.->|pack| t135
+  t135 -.->|proof| t136
+  t136 -.->|repair| t137
 ```
 
 ## 2. Bang theo song (thu tu thi cong)
@@ -608,11 +617,14 @@ flowchart LR
 | 4 | t17 | ✅ completed | dev-runtime-flash | — | t15 (follow-up) |
 | 4 | t18 | ✅ completed | kiem-thu | — | t15 (proof) |
 | 4 | t21 | ✅ completed | kiem-thu | t15, t16 | — |
-| 4 | t133 | ⬜ claimed | kiem-thu-goat | t132 | t132 (repair) |
-| 4 | t134 | ⬜ claimed | dev-build-flash | t131 | t131 (repair) |
+| 4 | t133 | ✅ completed | kiem-thu-goat | t132 | t132 (repair) |
+| 4 | t134 | ✅ completed | dev-build-flash | t131 | t131 (repair) |
 | 5 | t19 | ✅ completed | audit-kimi | — | t6 (audit-closure), t7 (audit-closure), t8 (audit-closure) |
+| 5 | t135 | ✅ completed | dev-build-flash | t134 | t134 (pack) |
 | 6 | t11 | ✅ completed | kiem-thu-goat | t10, t18, t19 | — |
+| 6 | t136 | ✅ completed | audit-goat | t135 | t135 (proof) |
 | 7 | t12 | ✅ completed | audit-goat | t11 | — |
+| 7 | t137 | 🔄 in_progress | dev-build-flash | t136 | t136 (repair) |
 | 8 | t13 | ✅ completed | dev-ui-goat | t12 | — |
 | 8 | t23 | ✅ completed | dev-build-flash | t12 | — |
 | 8 | t24 | ✅ completed | kiem-thu-goat | t12 | — |

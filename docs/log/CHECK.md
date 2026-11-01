@@ -759,3 +759,27 @@ Chốt: người dùng quyết định DỪNG vòng lặp sau t127. Không mở 
 2. Vì không có dữ liệu nào truy ra 'vị trí cũ' (21 bản cài plugin trên máy đều cùng thứ tự; docs/log không ghi), captain chốt **giả định (A)**: thứ tự mới = `[ProgressOverview, DependencyMap, AddMemberControl, (members IIFE), workspace && WorkspaceSummary]`. Người dùng nói 'về vị trí cũ' ⇒ hiểu là dependency bị đẩy XUỐNG dưới trước đó; form add-member đứng ngay trên danh sách.
 3. Đo trước khi giao: `lib/client.js` 258 432 B (258 271 ký tự), anchor `ProgressOverview` 175 575 · `orderDelegationMembers` 175 654 · `AddMemberControl` 181 760 · `DependencyMap` 181 856; `lib/client.js.map` 19 sources, `sources[2]='../lib/client/ActivityPanel.js'`, `sourcesContent[2]` TRÙNG KHỚP byte với nguồn ⇒ map phải cập nhật cùng lúc.
 4. Luật nhắc lại: card phải mang `assignee` ngay khi tạo (đã làm), và `tools/check-contract.mjs` phải PASS trước khi gửi brief. t131 FAIL (a) vì verify trỏ hai suite do t128/t129 tạo sau ⇒ `amend_task` rev 1 chuyển chúng thành acceptance.
+
+## Vòng 21 — captain tự chấm t134 (vá sourcemap V20-F1) và 3 bài học
+
+### 1. Một phép đột biến 'chạy xong' KHÔNG có nghĩa là đã áp dụng
+Script đột biến đầu tiên của tôi in `mutated 1918 2595 -> sc 179` và trả exit 0, nhưng điều kiện khớp của nó sai (`prevGc + delta === target` thay vì `gc === target`) nên **không sửa byte nào**; suite vì thế vẫn 16/16 EXIT 0 và rất dễ bị đọc thành 'cổng không có răng'.
+Chỉ vì tôi **đọc lại bằng bộ giải VLQ độc lập** (viết riêng, không dùng mã của member) mà thấy `MUTANT 0 []` — tức là phép đột biến chưa hề xảy ra.
+**Luật**: sau mỗi phép đột biến phải chứng minh nó ĐÃ áp dụng bằng một phép ĐỌC ĐỘC LẬP (hash, hoặc giải lại dữ liệu), không tin thông điệp thành công của chính script đột biến. Sửa điều kiện rồi chạy lại ⇒ `FAIL M4` đúng nguyên văn.
+
+### 2. 'Thiếu file cấu hình' ≠ 'không có toolchain'
+Tôi từng kết luận repo không còn toolchain build sau khi kiểm `tsconfig*.json` và `scripts/clean-build.mjs` — SAI: `build/build.mjs` (esbuild 0.28.2) tồn tại và tái lập `lib/client.js` **byte-identical**. Kết luận sai đó đã được ghi vào BA/ACTIVITY/báo cáo và phải đính chính.
+**Luật**: trước khi khẳng định 'không có công cụ X', phải grep theo HÀNH VI (`build`, `pack`, `generate`, `compile`) trong `package.json` scripts + toàn repo, không chỉ tìm file cấu hình của một toolchain cụ thể.
+
+### 3. Đo độ lệch phải bằng cấu trúc, không bằng số byte
+Map cũ và map mới **cùng 404 958 B**; nếu chỉ so bytes/sha của cả tệp thì vẫn thấy khác, nhưng nếu ai đó chỉ so `mappings.length` (114 429 cả hai) thì kết luận 'không đổi'. Phép chấm đúng là GIẢI VLQ rồi so vị trí nguồn của từng neo. Đột biến số (2) ở trên chính là ca chứng minh: mappings dài y nguyên mà vẫn sai.
+## Vòng 21 (phần 2) — captain chấm t136 và công bố
+
+### 1. So hai bộ byte phải bằng CẤU TRÚC entry, không bằng sha của cả tarball
+Tarball vòng 20 và vòng 21 chỉ +3 B; nếu chỉ so sha của `.tgz` thì biết 'khác' mà KHÔNG biết khác cái gì. Phép đúng: giải nén cả hai rồi so từng entry — 133 tệp, đúng 1 tệp khác (`lib/client.js.map`, cùng 404 958 B). Cách này còn tự chứng minh 'không có entry ngoài dự kiến', thứ mà sha không nói được.
+
+### 2. Sweep toàn bộ dài hơn 9 phút — chạy NỀN, đừng để trần lệnh cắt
+Lần đầu tôi bọc `win_bash` timeout 540 s ⇒ mã trả về **124** (cái bị cắt là TIẾN TRÌNH BỌC, không phải sweep hỏng), và tôi suýt kết luận sai 'sweep không chạy được'. Đúng: `run_in_background: true` rồi `job_output(wait)` hoặc đọc log; log ghi `EXIT=0` + `summary:` mới là bằng chứng.
+
+### 3. Finding mức thấp thì mở MỘT card gộp, đừng mở vòng mới
+5 finding của vòng 21 đều low/info và 4 trong số đó nằm ngoài bộ byte ship (`tools/`, `tests/`, `build/`, docs). Mở vòng mới sẽ vô hiệu verdict vừa đạt; đúng là một card `t137` với outOfScope chặn `lib/**` + `package.json`, nên verdict vòng 21 vẫn nguyên hiệu lực trong lúc vá.

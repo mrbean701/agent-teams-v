@@ -1,7 +1,7 @@
 {
   "$comment": "Derived task relations that the AgentTeams DAG cannot hold retroactively (edit_plan refuses started tasks). Generator tools/dependency-report.mjs merges these with team.json dependencies.",
   "team": "nami-agent-teams",
-  "updatedAt": "2026-11-01T04:17:23.307Z",
+  "updatedAt": "2026-11-01T05:10:19.586Z",
   "edges": [
     {
       "from": "t3",
@@ -878,6 +878,24 @@
       "to": "t134",
       "kind": "repair",
       "why": "V20-F1 sourcemap mappings lệch + V20-F2 WARN sweep + V20-F3 t118-pack → LEGACY"
+    },
+    {
+      "from": "t134",
+      "to": "t135",
+      "kind": "pack",
+      "note": "lib/client.js.map doi ⇒ phai pack lai vong 21"
+    },
+    {
+      "from": "t135",
+      "to": "t136",
+      "kind": "proof",
+      "note": "audit vong 21"
+    },
+    {
+      "from": "t136",
+      "to": "t137",
+      "kind": "repair",
+      "why": "V21-F1/F3/F4/F5 (low): sweep bo sot packages/*/tests, t130-pack ghim map vong 20, build root theo cwd, WARN_FIXTURE chua tai lieu hoa"
     }
   ],
   "superseded": {

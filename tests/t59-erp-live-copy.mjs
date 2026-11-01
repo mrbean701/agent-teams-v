@@ -75,6 +75,12 @@ const PKG = join(REPO_ROOT, 'packages', 'dsh-agent-teams');
  *
  * t129: re-measured the two bundle rows after t128 moved DependencyMap + AddMemberControl
  * above the member list (same byte counts, different bytes). The other 11 rows are untouched.
+ *
+ * t134 (V20-F1): the lib/client.js.map row ONLY. The shipped map had been produced from the panel
+ * as it stood BEFORE t128 moved the two call sites, so it described code that no longer existed at
+ * those columns. It was regenerated through the real pipeline (packages/dsh-agent-teams/build/build.mjs);
+ * lib/client.js came out byte-identical (377bcea2 / 258 432 B), the map kept its 404 958 B and only
+ * its sha256 changed. The other 12 rows are untouched.
  */
 const FROZEN = [
     { path: 'lib/tools.js', sha256: 'e51734baf4693cd30f4c86aaf577afb58f8afef39788588d900a93621ae62d61', bytes: 213715 },
@@ -84,7 +90,7 @@ const FROZEN = [
     { path: 'lib/index.js', sha256: '2d28e617f0683e420a30875557bbb7589cb0221e40e8839f7fdd9d1015d227c9', bytes: 45315 },
     { path: 'lib/tool-names.js', sha256: 'e3def5db908dcbd510811cb2da9c2076c3cf948b7b734bff73c510f85ac3ec58', bytes: 808 },
     { path: 'lib/client.js', sha256: '377bcea2394cc0ac3dd69b7c1dba05b56e90b0d5db9a1b565840e057bc0cb47d', bytes: 258432 },
-    { path: 'lib/client.js.map', sha256: '1f1d15524bcd3caa4ae3f39247558550736f32ac151f9908cbb15c88a260dd81', bytes: 404958 },
+    { path: 'lib/client.js.map', sha256: '5024364fefe8b73efc14579d9b202013ce700147424d4b084836e38ee91a418e', bytes: 404958 },
     { path: 'lib/types/members.d.ts', sha256: 'c53250ab41bff8c310f3bed4f808f8c799296878b060670527b8fbc1f749239e', bytes: 31769 },
     { path: 'lib/types/snapshot.d.ts', sha256: '962f99a7bcb18b9482b0d4e6933bde0c79356b885c323c0e60f596e6c0fd1a22', bytes: 7627 },
     { path: 'lib/types/tools.d.ts', sha256: '41cfc56576ed8ffd8020cba53f6ed7a91ba30382ea46a0e136f02e4d3a67f5c3', bytes: 7546 },

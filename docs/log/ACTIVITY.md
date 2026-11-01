@@ -446,6 +446,39 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | `lib/client/ActivityPanel.js` | 64 004 B · bố cục cũ ở dòng 392 (`ProgressOverview`, rồi IIFE members) và 437 (`AddMemberControl` → `DependencyMap` → `WorkspaceSummary`) |
 | `lib/client.js` (bundle Host nạp) | 258 432 B / 3 217 dòng · `window.__ModuleLoader__.load({ id: '@nami/dsh-agent-teams', factory })` · anchor: ProgressOverview 175 575, orderDelegationMembers 175 654, AddMemberControl 181 760, DependencyMap 181 856 |
 | `lib/client.js.map` | 19 sources, `sourcesContent[2]` = nguồn `ActivityPanel.js` khớp byte |
-| Toolchain | KHÔNG có: `tsconfig.json`/`tsconfig.client.json`/`tsdown` config vắng mặt; `scripts/clean-build.mjs`, `scripts/git-artifacts.mjs` không tồn tại ⇒ sửa tay bundle |
+| Toolchain | ĐÍNH CHÍNH (sau t134): CÓ pipeline thật `build/build.mjs` (esbuild 0.28.2) — tái lập `lib/client.js` byte-identical `377bcea2…`/258 432. Dòng cũ ghi 'KHÔNG có' là SAI: `tsconfig*.json`/`scripts/clean-build.mjs` vắng mặt, nhưng build.mjs tự dựng wrapper + shift mappings |
 | Pin hiện tại | `tests/t10-ui-bundle-smoke.mjs` sha `9da18d99…fec7007` / 258 432 B; `tests/t59-erp-live-copy.mjs` FROZEN 13 dòng |
 | Roster | 5 member goat flash đều idle; 3 task chưa terminal: t51 failed, t66 pending, t93 pending |
+
+## Vòng 21 — bảng đo captain khi chấm t134 (vá sourcemap)
+
+| Phép đo | Kết quả |
+| --- | --- |
+| `lib/client.js.map` sau t134 | `5024364fefe8b73e…` / **404 958 B** (trước `1f1d15524bcd3caa…`, CÙNG số byte) |
+| `lib/client.js` sau t134 | `377bcea2394cc0ac…` / 258 432 B — KHÔNG đổi (pin t10 giữ nguyên) |
+| `lib/client/ActivityPanel.js` | `9596333059c68b80…` / 64 004 B — KHÔNG đổi |
+| `lib/client.js.map` của `tests/tmp/t128/before/` | 50 segment trỏ nguồn dòng 391/392; bản MỚI 78 segment ⇒ mappings ĐÃ đổi, chỉ giải VLQ mới thấy |
+| Giải VLQ ĐỘC LẬP của captain (script riêng `tests/tmp/cap134-scan3.cjs`) | dòng sinh 1919 (1-based) cột 2595 → nguồn `392:177`; cột 2744 → `392:327` ⇒ khớp lời khai của member |
+| `tests/t128-panel-order.mjs` | EXIT 0 · **16/16** · `mappings sha256 75443a5f…` / 114 429 ký tự / 3 212 dòng sinh |
+| `tests/t10-ui-bundle-smoke.mjs` | EXIT 0 · **50/50** (pin bundle không đổi) |
+| `tests/t129-pins.mjs` | EXIT 0 · **13/13** |
+| `tests/t120-sweep-suites.mjs` | EXIT 0 · **23/23** · 9 LEGACY (8 pack suite cũ + `t118-pack` từ V20-F3) |
+| `tests/t98-render-coverage.mjs --strict` | EXIT 0 · GREEN `fields=112 reached=105 uncovered=0 nested_gaps=0 allow_listed=7` + 6 control `applies=true` |
+| Mutation MỚI của captain (trên BẢN SAO `tests/tmp/t134cap`, không đụng cây nguồn) | (1) hoán vị `sources[0]`↔`sources[1]` ⇒ EXIT 1 **FAIL M2** 15/16; (2) một neo cột nguồn 177→179, mappings VẪN 114 429 ký tự ⇒ EXIT 1 **FAIL M4** đúng nguyên văn `DependencyMap 1919:2595 -> 392:177` |
+## Vòng 21 (phần 2) — captain chấm t136 + công bố bộ byte
+
+| Phép đo (captain tự chạy) | Kết quả |
+|---|---|
+| Giải nén CẢ HAI tarball (`dist/vong-20/…` và `tests/tmp/t135/run-t135-b/pack-a/…`) rồi so từng entry bằng `node:crypto` | 133 tệp · **1 tệp khác**: `lib/client.js.map` `1f1d15524bcd3caa:404958` → `5024364fefe8b73e:404958` |
+| `docs/audit/closure-vong-21.md` / `docs/log/AUDIT.md` | 95 dòng / 396 dòng · 35 heading · có mục 'Audit closure vòng 21' |
+| `tests/t128-panel-order.mjs` | EXIT 0 · **16/16** · `mappings sha256 75443a5f…` / 114 429 ký tự |
+| `tests/t107-removed-members-visible.mjs` | EXIT 0 · **13/13** |
+| `tests/t113-roster-assertion.mjs` | EXIT 0 · **38/38** |
+| `tests/t114-source-freeze.mjs` | EXIT 0 · **16/16** |
+| `tests/t115-check-contract.mjs` | EXIT 0 · **43/43** |
+| `tests/t98-render-coverage.mjs --strict` | EXIT 0 · GREEN `uncovered=0 nested_gaps=0 payload_findings=0 allow_listed=7 roster_invariant_problems=0` + 6 control `applies=true` |
+| `tools/sweep-suites.mjs --run` (chạy NỀN) | `PASS=54 FAIL=0 LEGACY=9 UNCLASSIFIED=0 skipped(live)=9 WARN=0 WARN_FIXTURE=1 DRIFT=0` · tool exit 0 |
+| `tools/sweep-suites.mjs --list` | `totals: 72 suite(s) = 9 LIVE + 63 fast; legacy exceptions: 9` |
+| `packages/dsh-agent-teams/tests/t130-pack.mjs` (plain) | EXIT 1 đúng như audit khai: `DIFF lib/client.js.map [frozen] applies=true shaApplies=false bytesFrozen=404958 bytesActual=404958` + `FAIL  A2 frozen table 13 rows re-measured at run time` |
+| Công bố | `dist/vong-21/nami-dsh-agent-teams-0.2.0-dev.0.tgz` = COPY của artefact đã chấm, `copyIdentical=true`, sha `6db464d1…` / 2 248 091 B |
+| Telegram | kỳ 43 = `docs/bao-cao-telegram/ky-43.md`, gửi thật `messageId 54` |
