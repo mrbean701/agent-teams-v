@@ -80,6 +80,14 @@ Mutation của captain trên chính bộ kiểm (khác chiều member — member
 **Điều kiện hết hiệu lực của kết luận bộ byte phát hành:** artefact bị pack lại hoặc di chuyển khỏi `dist/vong-19/`; bất kỳ tệp nào trong 13 tệp đóng băng đổi; hoặc có task sửa `lib/**` sau mốc `2026-11-01T03:05:21Z`. Phần render phải chấm lại **bằng boot thật** nếu `lib/tools.js:3328/:3373/:3376/:3380` đổi.
 **ĐÍNH CHÍNH sự cố 02:08:18Z (BUG-028 lần 2).** Trước đây ghi là 'ghi không chủ, không ai khai nhận'. Nay xác định bằng số đo trùng khít: audit-goat (t122) tự khai ở closure §8 rằng trước khi brief cấm ghi `lib/**` tới, họ đã chạy 3 mutation TRỰC TIẾP trên `packages/dsh-agent-teams/lib/tools.js`; mutation A của họ có delta **−26 B** và sha `f3abdf76bc8c/213 689` — TRÙNG KHÍT `tableAfter` mà suite pack của captain ghi trong run `run-2026-11-01T02-08-00Z`. Nghĩa là: va chạm hai tiến trình member trên cùng cây nguồn, không phải bí ẩn môi trường. Luật rút ra: card mutation/audit phải mang câu 'mọi phép đột biến chạy trên BẢN SAO' ngay trong `acceptance`, và captain không chạy song song suite đang lấy mẫu cây nguồn khi member đang đo.
 
+### 2.3.1 Công bố mã nguồn — repo GitHub, nhánh `unity`
+
+- Repo: `https://github.com/mrbean701/agent-teams-v` · nhánh **`unity`** · commit đầu `b3dbebba7e82e4fb1616df6b00aff1ff5610364d` (385 tệp, 10.8 MB).
+- Bộ byte phát hành vào commit rồi tính lại vẫn khớp: `dist/vong-19/nami-dsh-agent-teams-0.2.0-dev.0.tgz` sha `2770fbfc4070eb80…3cc6251e` / 2 248 092 B.
+- KHÔNG đưa lên repo: `node_modules/`, `**/tests/tmp/` (316 MB artefact), `packages/dsh-agent-teams/build/` (output build — `package.json` trỏ `main`/`exports` vào `lib/`), `packages/dsh-agent-teams/tmp/` (prototype cũ), `.agent-teams/` (state runtime dogfood), `.dsh-acl-recovery/`, `docs/nghien-cuu/scratch/` (bản sao mã nguồn host).
+- Quét bí mật trước khi commit: 367 tệp văn bản, **0 khớp** `ghp_`/`github_pat_`/`sk-`/`xoxb-`/bot token/private key/AKIA/Bearer.
+- Version KHÔNG đổi (`0.2.0-dev.0`) ⇒ verdict vòng 19 còn hiệu lực (13 tệp đóng băng không bị chạm).
+
 ### 2.4 Chi tiết tarball t111 (vòng 18) và t121 (vòng 19)
 `packages/dsh-agent-teams/tests/tmp/t111/nami-dsh-agent-teams-0.2.0-dev.0.tgz` — **vòng 18**, sha256 `1bb0ef1fc83a…6414dc38`, **2 247 954 B**, **133 entry / 0 entry thư mục / 0 rác / 0 absolute**, ba chiều **13/13 SAME** với nguồn và bản cài `agent-teams-pack17` (không symlink, `0.2.0-dev.0`, lock `file:`), 2 lần pack CÙNG sha + bytes, drift 0/13 ở 3 mốc; `tests/t111-pack.mjs --analyze` **29/29 EXIT 0**; boot trên bản ĐÃ CÀI in `Members (1 present + 1 removed):` + `Removed (1):`. Bản cài có `removed_count`=3 · `removed_members`=5 · `present + `=1 · `active + `=0.
 

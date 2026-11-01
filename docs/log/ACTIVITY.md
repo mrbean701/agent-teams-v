@@ -427,3 +427,14 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | 5 | Captain đo lại 6 phép trước khi chấp nhận | 13/13 bản cài · 13/13 nguồn · ERP không đổi |
 | 6 | Findings VB-F1..VB-F5 định tuyến | F1/F2 ghi giới hạn · F3 việc mở · F4/F5 ghi nhận |
 | 7 | Chốt | dừng vòng lặp, không mở V20, giữ `0.2.0-dev.0`, không commit |
+
+## Vòng 19 (phần 6) — công bố mã nguồn lên GitHub
+
+| # | Việc | Kết quả |
+|---|---|---|
+| 1 | `git init -b unity` + `.gitignore` | 385 tệp staged, 10.8 MB; tệp lớn nhất là tarball phát hành 2 248 092 B |
+| 2 | Loại khỏi repo | `node_modules`, `**/tests/tmp` (316 MB), `packages/dsh-agent-teams/build`, `packages/dsh-agent-teams/tmp`, `.agent-teams`, `.dsh-acl-recovery`, `docs/nghien-cuu/scratch` |
+| 3 | Quét bí mật | 367 tệp văn bản, 0 khớp mẫu (`ghp_`, `github_pat_`, `sk-`, `xoxb-`, bot token, private key, AKIA, Bearer) |
+| 4 | Commit | `b3dbebba7e82e4fb1616df6b00aff1ff5610364d` |
+| 5 | Push | `origin/unity` cùng sha; `git ls-tree -r origin/unity` = 385 tệp; working tree clean |
+| 6 | Kiểm lại bộ byte sau commit | `dist/vong-19/…tgz` sha `2770fbfc…` / 2 248 092 B — không đổi |
