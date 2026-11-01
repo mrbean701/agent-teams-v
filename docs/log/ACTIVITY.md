@@ -597,3 +597,13 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | tarball vòng 25 | `da2f297b…`/2 248 536 B/133 entry · `--analyze` 29 PASS/0 FAIL · analyze chỉ đọc |
 | audit t152 | PASS; sweep `PASS=44 FAIL=0 LEGACY=16 DRIFT=0`; V25-F1/F2 medium + V25-F3 low |
 | t153 | t128 33→41 ca; mutation `align-self:stretch`→`auto` trong CSS nhúng (−3 B) ⇒ FAIL C11; `packages/**` drift 0/15 |
+
+## Vòng 25 (phần 2) — captain chấm t154 (bản phát hành chạy trên dữ liệu ERP)
+
+| Phép đo | Kết quả |
+| --- | --- |
+| `--analyze` artifact t154 | EXIT 0 · **18/18 PASS** · `proved A1.1…A6.2; unproved none` |
+| profile `agent-teams-rel25` | `isSymlink=false` · 133 tệp · 4/4 hash kiểm khớp |
+| ERP gốc | sha `9f7420b6a1af…`/1 533 117 B/mtimeMs 1792817593185.6294 — KHÔNG đổi |
+| bằng chứng hot-switch | `…applied to the live session and saved…` + `routeOverride{source:'captain', by:'session-b0f4bfe5-…'}` |
+| phát hiện | hồ sơ ERP có `id` bền ⇒ chỉ durable-only (`lib/tools.js:544-545`), hot-switch thật cần phiên sống |
