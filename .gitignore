@@ -1,0 +1,13 @@
+# runtime state của plugin dogfood (không phải mã nguồn)
+.agent-teams/
+.dsh-acl-recovery/
+# dependency + artefact sinh ra trong lúc chạy suite
+node_modules/
+**/tests/tmp/
+*.log
+# output của bước build (package.json trỏ main/exports vào lib/, build/ là sản phẩm sinh ra)
+packages/dsh-agent-teams/build/
+# prototype cũ để lại trong package
+packages/dsh-agent-teams/tmp/
+# bản sao mã nguồn host dùng để nghiên cứu (không phải mã của repo này)
+docs/nghien-cuu/scratch/

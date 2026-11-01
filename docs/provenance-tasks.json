@@ -1,0 +1,851 @@
+{
+  "$comment": "Derived task relations that the AgentTeams DAG cannot hold retroactively (edit_plan refuses started tasks). Generator tools/dependency-report.mjs merges these with team.json dependencies.",
+  "team": "nami-agent-teams",
+  "updatedAt": "2026-11-01T02:39:07.496Z",
+  "edges": [
+    {
+      "from": "t3",
+      "to": "t14",
+      "kind": "rework",
+      "why": "t3 bao 'smoke 18/18 PASS' nhung 0/26 file workspace chua setMemberRoute -> bang chung khong tai lap"
+    },
+    {
+      "from": "t4",
+      "to": "t15",
+      "kind": "follow-up",
+      "why": "lib/members.js chua export activateMemberNow -> add_member tren doi dang chay tra spawned=false"
+    },
+    {
+      "from": "t4",
+      "to": "t16",
+      "kind": "rework",
+      "why": "harness t4 nam o tests/tmp voi 1 duong dan tuyet doi -> khong tai lap o may khac"
+    },
+    {
+      "from": "t15",
+      "to": "t17",
+      "kind": "follow-up",
+      "why": "wire activate lam lo memberSpawnRelaxableDeny thieu toolPolicies -> member co toolPolicy bi noi deny sai"
+    },
+    {
+      "from": "t15",
+      "to": "t18",
+      "kind": "proof",
+      "why": "khong dogfood duoc set_member_route tren chinh doi nay (BUG-003: phien master nap v0.1.28) -> phai chung minh E2E trong profile nhap"
+    },
+    {
+      "from": "t6",
+      "to": "t19",
+      "kind": "audit-closure",
+      "why": "3 finding audit vong 1 can nguoi khac implementer xac nhan da dong"
+    },
+    {
+      "from": "t7",
+      "to": "t19",
+      "kind": "audit-closure",
+      "why": "finding 3 (update_member) dong bang tai lieu cua t7"
+    },
+    {
+      "from": "t8",
+      "to": "t19",
+      "kind": "audit-closure",
+      "why": "finding 1+2 (by provenance, test F2) dong bang ma cua t8"
+    },
+    {
+      "from": "t22",
+      "to": "t10",
+      "kind": "rework",
+      "why": "t9 kết luận sai (KHONG KHA THI) nên phải dựng lại bundle thật trước khi sửa UI; t10 phụ thuộc t22 về mặt logic nhưng edit_plan từ chối vì t10 đã start."
+    },
+    {
+      "from": "t26",
+      "to": "t27",
+      "kind": "follow-up",
+      "why": "closure verdict Phat hanh duoc nhung quy trinh rollback trong docs/van-hanh moi chi la VAN XUOI, chua ai chay that -> phai chung minh bang drill that"
+    },
+    {
+      "from": "t26",
+      "to": "t28",
+      "kind": "follow-up",
+      "why": "closure ghi 0 phat hien lop ma nhung NFR-KHANG-LOI-PROVIDER-01 (3 lan provider chet lam captain chi biet khi member im lang) chua duoc thi hanh"
+    },
+    {
+      "from": "t26",
+      "to": "t29",
+      "kind": "follow-up",
+      "why": "moi bang chung hien tai deu tu thu muc nguon (symlink); artifact phat hanh that (npm pack -> cai tarball -> boot) chua duoc chung minh"
+    },
+    {
+      "from": "t28",
+      "to": "t30",
+      "kind": "follow-up",
+      "why": "t28 surface lastFailure trong snapshot nhung DTO cua tool agent_teams_status (lib/tools.js:2204-2235) dung rieng nen captain van khong thay -> can va 1 cho"
+    },
+    {
+      "from": "t27",
+      "to": "t31",
+      "kind": "audit-closure",
+      "why": "audit vong 3 phai cham rollback drill bang may chu khong tin bao cao"
+    },
+    {
+      "from": "t28",
+      "to": "t31",
+      "kind": "audit-closure",
+      "why": "audit vong 3 phai mutation-test lai suite lastFailure"
+    },
+    {
+      "from": "t29",
+      "to": "t31",
+      "kind": "audit-closure",
+      "why": "audit vong 3 phai kiem tarball con khop ma nguon hien tai hay da lech sau t28/t30"
+    },
+    {
+      "from": "t30",
+      "to": "t31",
+      "kind": "audit-closure",
+      "why": "audit vong 3 phai xac nhan last_failure co trong DTO va khoa cu khong doi"
+    },
+    {
+      "from": "t27",
+      "to": "t32",
+      "kind": "follow-up",
+      "why": "t27 đo được 3 bước SAI của tài liệu rollback ⇒ t32 viết lại mục 5 theo số đo"
+    },
+    {
+      "from": "t32",
+      "to": "t33",
+      "kind": "follow-up",
+      "why": "sau khi sửa §5, captain đọc nguyên văn và thấy §7 còn câu lỗi thời về test 401"
+    },
+    {
+      "from": "t24",
+      "to": "t33",
+      "kind": "proof",
+      "why": "t24 12/12 là bằng chứng khiến câu 'không có test 401' trong §7 thành sai"
+    },
+    {
+      "from": "t31",
+      "to": "t34",
+      "kind": "finding",
+      "why": "V3-F4 của audit vòng 3: UI không hiển thị lastFailure"
+    },
+    {
+      "from": "t31",
+      "to": "t35",
+      "kind": "finding",
+      "why": "V3-F1 của audit vòng 3: tarball t29 lệch 4 tệp lõi"
+    },
+    {
+      "from": "t34",
+      "to": "t35",
+      "kind": "dependency-note",
+      "why": "tarball phát hành phải chứa cả thay đổi UI nên chỉ pack sau t34"
+    },
+    {
+      "from": "t35",
+      "to": "t36",
+      "kind": "verification",
+      "why": "audit vòng 4 chấm chính artifact phát hành do t35 tạo"
+    },
+    {
+      "from": "t36",
+      "to": "t37",
+      "kind": "follow-up",
+      "why": "audit vong 4 mo xong nhung set_member_route chi DAT override, khong co duong XOA -> route khai bao khong the quay lai"
+    },
+    {
+      "from": "t36",
+      "to": "t40",
+      "kind": "follow-up",
+      "why": "doi ERP thuc te dung script PowerShell 6 buoc de doi model; can cong cu chi-doc de xuat di tru routeOverride"
+    },
+    {
+      "from": "t37",
+      "to": "t38",
+      "kind": "sequence",
+      "why": "cung 2 tep lib/members.js + lib/tools.js, phai lam tuan tu de tranh xung dot ghi"
+    },
+    {
+      "from": "t37",
+      "to": "t39",
+      "kind": "sequence",
+      "why": "UI nut khoi phuc route can action HTTP dua tren tool clear cua t37"
+    },
+    {
+      "from": "t38",
+      "to": "t41",
+      "kind": "pack",
+      "why": "tarball phat hanh phai chua thay doi fallback per-member"
+    },
+    {
+      "from": "t39",
+      "to": "t41",
+      "kind": "pack",
+      "why": "tarball phat hanh phai chua bundle UI moi + action clear_member_route"
+    },
+    {
+      "from": "t37",
+      "to": "t42",
+      "kind": "audit",
+      "why": "audit vong 5 cham route revert"
+    },
+    {
+      "from": "t38",
+      "to": "t42",
+      "kind": "audit",
+      "why": "audit vong 5 cham fallback per-member"
+    },
+    {
+      "from": "t39",
+      "to": "t42",
+      "kind": "audit",
+      "why": "audit vong 5 cham UI + HTTP action"
+    },
+    {
+      "from": "t40",
+      "to": "t42",
+      "kind": "audit",
+      "why": "audit vong 5 cham cong cu di tru ERP"
+    },
+    {
+      "from": "t41",
+      "to": "t42",
+      "kind": "audit",
+      "why": "audit vong 5 cham tarball phat hanh"
+    },
+    {
+      "from": "t40",
+      "to": "t43",
+      "kind": "follow-up",
+      "why": "t40 phat hien 3 cap member ERP lech vai tro va khong co tool nao sua duoc role/executionPrompt tren doi dang chay"
+    },
+    {
+      "from": "t37",
+      "to": "t44",
+      "kind": "follow-up",
+      "why": "lib/types/*.d.ts chua khai bao clear/cleared -> tai lieu kieu lech hanh vi"
+    },
+    {
+      "from": "t37",
+      "to": "t45",
+      "kind": "proof",
+      "why": "t37 chi chung minh durable + thu tu tinh; chieu live tren member dang chay can E2E kieu t18"
+    },
+    {
+      "from": "t38",
+      "to": "t46",
+      "kind": "follow-up",
+      "why": "t38 tự khai giới hạn: HTTP /plan và UI chưa có nhánh fallback"
+    },
+    {
+      "from": "t46",
+      "to": "t42",
+      "kind": "audit",
+      "why": "audit closure vòng 5 phải chấm cả đường fallback HTTP/UI"
+    },
+    {
+      "from": "t38",
+      "to": "t47",
+      "kind": "follow-up",
+      "why": "t38 khai 'fallback-only không tự cài override' nhưng suite không có case fallback-only (BUG-013)"
+    },
+    {
+      "from": "t43",
+      "to": "t47",
+      "kind": "sequence",
+      "why": "cùng tệp lib/members.js, phải chạy sau t43 để tránh ghi song song"
+    },
+    {
+      "from": "t47",
+      "to": "t46",
+      "kind": "proof",
+      "why": "action HTTP set_member_fallback của t46 gọi đúng hình dạng fallback-only; cần t47 chứng minh guard"
+    },
+    {
+      "from": "t43",
+      "to": "t48",
+      "kind": "follow-up",
+      "why": "t43 tự khai tool mới không có trong TEAM_TOOL_NAMES ⇒ deny-list member không chặn"
+    },
+    {
+      "from": "t43",
+      "to": "t49",
+      "kind": "follow-up",
+      "why": "t43 tự khai execution_prompt chưa lộ trong DTO status và chưa có HTTP"
+    },
+    {
+      "from": "t46",
+      "to": "t49",
+      "kind": "sequence",
+      "why": "cùng tệp lib/index.js, phải chạy sau t46"
+    },
+    {
+      "from": "t48",
+      "to": "t49",
+      "kind": "sequence",
+      "why": "t49 sửa lib/tools.js sau khi t48 chốt tool-names/capabilities"
+    },
+    {
+      "from": "t47",
+      "to": "t50",
+      "kind": "sequence",
+      "why": "cùng tệp lib/tools.js, phải chạy sau t47"
+    },
+    {
+      "from": "t49",
+      "to": "t50",
+      "kind": "sequence",
+      "why": "t49 sửa cùng lib/tools.js (DTO), t50 phải chạy sau để tránh ghi song song"
+    },
+    {
+      "from": "t45",
+      "to": "t51",
+      "kind": "sequence",
+      "why": "t51 dùng lại hạ tầng E2E live của t45"
+    },
+    {
+      "from": "t47",
+      "to": "t51",
+      "kind": "proof",
+      "why": "t51 chứng minh nhánh fallback mà t47 vừa bịt lỗ hổng phủ test"
+    },
+    {
+      "from": "t41",
+      "to": "t52",
+      "kind": "rework",
+      "why": "tarball t41 lệch 3 tệp so nguồn (tool-names do t48, index+tools do t49) ⇒ phải pack lại khi cây đứng yên"
+    },
+    {
+      "from": "t49",
+      "to": "t52",
+      "kind": "sequence",
+      "why": "t49 sửa lib/index.js + lib/tools.js sau lượt pack t41"
+    },
+    {
+      "from": "t50",
+      "to": "t52",
+      "kind": "sequence",
+      "why": "t50 sửa lib/tools.js (validateStagedGraph) ⇒ tarball phải chứa bản đã vá BUG-012"
+    },
+    {
+      "from": "t51",
+      "to": "t52",
+      "kind": "sequence",
+      "why": "không pack khi member còn chạy suite E2E trên cùng cây"
+    },
+    {
+      "from": "t52",
+      "to": "t53",
+      "kind": "proof",
+      "why": "tarball cuối cần audit độc lập riêng, tách khỏi audit mã nguồn t42"
+    },
+    {
+      "from": "t42",
+      "to": "t53",
+      "kind": "sequence",
+      "why": "t53 chỉ chấm tarball; audit mã nguồn là t42 nên không chồng lấn"
+    },
+    {
+      "from": "t40",
+      "to": "t58",
+      "kind": "sequence",
+      "why": "t40 mới là công cụ CHỈ ĐỌC đề xuất; t58 là bước GHI có chốt an toàn trên cùng bộ 7 cặp"
+    },
+    {
+      "from": "t52",
+      "to": "t59",
+      "kind": "proof",
+      "why": "t59 chứng minh bản fork đã đóng gói (t52) chạy trên dữ liệu ERP thật (bản copy)"
+    },
+    {
+      "from": "t20",
+      "to": "t59",
+      "kind": "sequence",
+      "why": "t20 chứng minh đọc được team.json ERP; t59 chứng minh đọc+ghi bền trên bản copy qua tool"
+    },
+    {
+      "from": "t57",
+      "to": "t58",
+      "kind": "parallel",
+      "why": "t57 (panel/docs) và t58 (công cụ di trú) không chạm cùng tệp nên chạy song song"
+    },
+    {
+      "from": "t57",
+      "to": "t59",
+      "kind": "parallel",
+      "why": "t59 chạy trên profile agent-teams-test, không chạm lib/client/** hay docs/van-hanh của t57"
+    },
+    {
+      "from": "t57",
+      "to": "t60",
+      "kind": "sequence",
+      "why": "t57 phát hiện số liệu cũ + mục lộn thứ tự trong báo cáo người dùng ⇒ t60 đo lại và sắp lại"
+    },
+    {
+      "from": "t58",
+      "to": "t61",
+      "kind": "proof",
+      "why": "công cụ GHI mới vào repo ⇒ audit vòng 6 phải tự mutation chốt an toàn"
+    },
+    {
+      "from": "t59",
+      "to": "t61",
+      "kind": "proof",
+      "why": "E2E trên dữ liệu ERP thật cần chấm độc lập, không tin verdict --analyze"
+    },
+    {
+      "from": "t60",
+      "to": "t61",
+      "kind": "proof",
+      "why": "báo cáo người dùng đổi số ⇒ audit phải tự đo lại 6 hash + 4 suite"
+    },
+    {
+      "from": "t61",
+      "to": "t62",
+      "kind": "sequence",
+      "why": "audit vòng 6 đang mutation ActivityPanel.js ⇒ task sửa CSS phải chờ audit xong (tránh BUG-010 churn)"
+    },
+    {
+      "from": "t61",
+      "to": "t65",
+      "kind": "follow-up",
+      "why": "audit vòng 6 phát hiện blocker V6-F1: erp-route-migrate ghi routeOverride thiếu source/at"
+    },
+    {
+      "from": "t62",
+      "to": "t67",
+      "kind": "follow-up",
+      "why": "t62 chỉ quét ActivityPanel.js; captain quét mọi client ⇒ MemberControls.planSave thiếu"
+    },
+    {
+      "from": "t67",
+      "to": "t68",
+      "kind": "pack",
+      "why": "tarball phải chứa bản vá CSS đầy đủ (140 lớp + planSave)"
+    },
+    {
+      "from": "t68",
+      "to": "t69",
+      "kind": "proof",
+      "why": "audit vòng 7 chấm tarball phát hành mới, tự hash trên đĩa"
+    },
+    {
+      "from": "t65",
+      "to": "t69",
+      "kind": "proof",
+      "why": "audit phải chấm cả bản vá V6-F1 cùng vòng"
+    },
+    {
+      "from": "t69",
+      "to": "t70",
+      "kind": "follow-up",
+      "why": "V7-F2: xoá rule nhóm :focus-visible mà t62 vẫn 17/17 ⇒ phải có sàn biến thể trạng thái"
+    },
+    {
+      "from": "t70",
+      "to": "t71",
+      "kind": "sequence",
+      "why": "cùng member dev-ui-goat sửa cùng vùng client ⇒ làm test trước rồi mới sửa form"
+    },
+    {
+      "from": "t69",
+      "to": "t71",
+      "kind": "follow-up",
+      "why": "D1 do captain tự kiểm panel (DOG-03) phát hiện: form thêm member mặc định route ngoài catalog ⇒ 409"
+    },
+    {
+      "from": "t71",
+      "to": "t72",
+      "kind": "pack",
+      "why": "t71 doi lib/client.js -> tarball t68 het hop le, phai pack lai"
+    },
+    {
+      "from": "t72",
+      "to": "t73",
+      "kind": "proof",
+      "why": "audit vong 8 cham doc lap tarball t72 + 3 mutation khac captain"
+    },
+    {
+      "from": "t71",
+      "to": "t74",
+      "kind": "follow-up",
+      "why": "snapshot khong chua route khai bao cua captain -> nhanh canh bao cua pickDefaultRoute khong hien that trong GUI"
+    },
+    {
+      "from": "t73",
+      "to": "t74",
+      "kind": "sequence",
+      "why": "de t74 sau t73 de khong pha tarball t72 dang pack"
+    },
+    {
+      "from": "t74",
+      "to": "t75",
+      "kind": "pack",
+      "why": "t74 doi lib/snapshot.js + lib/client -> tarball t72 het hop le"
+    },
+    {
+      "from": "t75",
+      "to": "t76",
+      "kind": "proof",
+      "why": "audit vong 9 cham doc lap tarball t75"
+    },
+    {
+      "from": "t74",
+      "to": "t77",
+      "kind": "follow-up",
+      "why": "t74 them captainRoute vao payload, lib/types/snapshot.d.ts chua khai"
+    },
+    {
+      "from": "t77",
+      "to": "t78",
+      "kind": "pack",
+      "why": "t77 doi lib/types/snapshot.d.ts -> tarball t75 lech nguon"
+    },
+    {
+      "from": "t78",
+      "to": "t79",
+      "kind": "proof",
+      "why": "audit vong 10 cham tarball t78"
+    },
+    {
+      "from": "t76",
+      "to": "t80",
+      "kind": "follow-up",
+      "why": "V9-F3: hai check luon xanh, khong assert hash bundle"
+    },
+    {
+      "from": "t79",
+      "to": "t81",
+      "kind": "follow-up",
+      "why": "V5-T1: 3 export chua khai bao trong lib/types/members.d.ts - no kieu phai dong truoc ban chinh thuc"
+    },
+    {
+      "from": "t59",
+      "to": "t82",
+      "kind": "proof",
+      "why": "t59 chi chung minh doc/ghi routeOverride, chua chung minh phien con THAT dung route da di tru"
+    },
+    {
+      "from": "t81",
+      "to": "t83",
+      "kind": "follow-up",
+      "why": "t81 chi so khop VAN BAN; tsc 5.9.3 co san nen phai co cong bien dich that"
+    },
+    {
+      "from": "t83",
+      "to": "t84",
+      "kind": "pack",
+      "why": "t83 co the sua lib/types/** nen tarball vong 11 phai pack sau t83"
+    },
+    {
+      "from": "t84",
+      "to": "t85",
+      "kind": "proof",
+      "why": "audit doc lap vong 11 cham tarball t84 + cong bien dich"
+    },
+    {
+      "from": "t82",
+      "to": "t86",
+      "kind": "repair",
+      "why": "t82 C3 FAIL: duong spawn-tu-scheduler bo qua routeOverride (lib/tools.js:546-548)"
+    },
+    {
+      "from": "t86",
+      "to": "t84",
+      "kind": "pack",
+      "why": "t86 doi lib/tools.js + lib/members.js nen tarball vong 11 phai pack sau t86"
+    },
+    {
+      "from": "t82",
+      "to": "t85",
+      "kind": "proof",
+      "why": "audit vong 11 phai xac nhan chieu FAIL->PASS cua t82 tren 2 artifact"
+    },
+    {
+      "from": "t86",
+      "to": "t85",
+      "kind": "proof",
+      "why": "audit vong 11 cham ban va BUG-023"
+    },
+    {
+      "from": "t86",
+      "to": "t87",
+      "kind": "follow-up",
+      "reason": "t86 khai giới hạn: approveStagedTeam vẫn đọc spine ⇒ routeOverride bị bỏ qua ở bước approve"
+    },
+    {
+      "from": "t87",
+      "to": "t88",
+      "kind": "pack",
+      "reason": "pack vòng 12 phải chứa bản vá t87"
+    },
+    {
+      "from": "t88",
+      "to": "t89",
+      "kind": "proof",
+      "reason": "audit vòng 12 chấm tarball t88 + vá t87 + V11-F3"
+    },
+    {
+      "from": "t87",
+      "to": "t90",
+      "kind": "follow-up",
+      "reason": "BUG-024: sau t87 approve đọc route hiệu lực nhưng roster của edit_plan vẫn in spine ⇒ captain duyệt kế hoạch đọc sai route"
+    },
+    {
+      "from": "t90",
+      "to": "t92",
+      "kind": "pack",
+      "reason": "pack vòng 13 phải chứa bản vá BUG-024 trong lib/tools.js"
+    },
+    {
+      "from": "t92",
+      "to": "t93",
+      "kind": "proof",
+      "reason": "audit vòng 13 chấm tarball t92 + vá BUG-024"
+    },
+    {
+      "from": "t89",
+      "to": "t91",
+      "kind": "follow-up",
+      "reason": "goal §6 đòi 7 nhóm log; ACTIVITY và BA chưa có mục cho vòng 11–12 và không có công cụ phát hiện log cũ"
+    },
+    {
+      "from": "t90",
+      "to": "t94",
+      "kind": "follow-up",
+      "reason": "t90 vá route trong structured output nhưng render tool bỏ roster ⇒ captain vẫn không thấy route hiệu lực trên đường văn bản"
+    },
+    {
+      "from": "t91",
+      "to": "t95",
+      "kind": "follow-up",
+      "reason": "cổng log bỏ qua phép kiểm độ mới trong im lặng khi header TODO thiếu 'vòng N'"
+    },
+    {
+      "from": "t93",
+      "to": "t96",
+      "kind": "pack",
+      "reason": "audit vòng 13 trỏ tarball t92 đã huỷ; tarball thật phải pack sau khi render roster sửa (t94)"
+    },
+    {
+      "from": "t94",
+      "to": "t96",
+      "kind": "pack",
+      "reason": "t94 đổi lib/tools.js (render in roster) ⇒ tarball t88 hết khớp nguồn, phải pack vòng 13"
+    },
+    {
+      "from": "t96",
+      "to": "t97",
+      "kind": "proof",
+      "reason": "audit vòng 13 phải chấm bộ byte t96 chứ không chấm lại t88"
+    },
+    {
+      "from": "t97",
+      "to": "t98",
+      "kind": "follow-up",
+      "reason": "BUG-024 chỉ vá một tool; lớp lỗi 'payload đúng nhưng text render bỏ sót' chưa có cổng cho 15 tool còn lại"
+    },
+    {
+      "from": "t98",
+      "to": "t99",
+      "kind": "fix",
+      "reason": "t98 phát hiện trường payload không tới được text render ⇒ phải vá"
+    },
+    {
+      "from": "t99",
+      "to": "t100",
+      "kind": "pack",
+      "reason": "t99 đổi lib/tools.js ⇒ tarball t96 hết khớp nguồn"
+    },
+    {
+      "from": "t100",
+      "to": "t101",
+      "kind": "proof",
+      "reason": "audit vòng 14 phải chấm bộ byte t100 và chính cổng t98"
+    },
+    {
+      "from": "t101",
+      "to": "t102",
+      "kind": "follow-up",
+      "reason": "audit vòng 14 chấm lib/state.js; BUG-026 phát hiện khi captain probe độ bền đọc trên team.json ERP"
+    },
+    {
+      "from": "t65",
+      "to": "t102",
+      "kind": "proof",
+      "reason": "t102 chứng minh tiếp hợp đồng provenance mà t65 đặt ra (source/at/by) ở phía ĐỌC"
+    },
+    {
+      "from": "t102",
+      "to": "t103",
+      "kind": "repair",
+      "reason": "nửa GHI của BUG-026: lib/members.js không kiểm request.source"
+    },
+    {
+      "from": "t103",
+      "to": "t104",
+      "kind": "pack",
+      "reason": "t103 đổi lib/members.js và t102 đổi lib/state.js ⇒ tarball t100 hết khớp nguồn"
+    },
+    {
+      "from": "t104",
+      "to": "t105",
+      "kind": "proof",
+      "reason": "audit V15 phải chấm bộ byte t104 và hai bản vá provenance"
+    },
+    {
+      "from": "t102",
+      "to": "t104",
+      "kind": "pack",
+      "reason": "t102 đổi lib/state.js ⇒ cần pack mới"
+    },
+    {
+      "from": "t103",
+      "to": "t106",
+      "kind": "proof",
+      "reason": "chứng minh bản vá guard ghi + đọc lenient dùng được trên dữ liệu ERP thật"
+    },
+    {
+      "from": "t105",
+      "to": "t106",
+      "kind": "follow-up",
+      "reason": "verdict vòng 15 chỉ chứng minh bộ byte; chưa chứng minh dùng được với team.json thật"
+    },
+    {
+      "from": "t106",
+      "to": "t107",
+      "kind": "repair",
+      "reason": "t106 phát hiện F1: status DTO lọc mất hồ sơ removed ⇒ captain không thấy 7/14 hồ sơ ERP"
+    },
+    {
+      "from": "t107",
+      "to": "t108",
+      "kind": "pack",
+      "reason": "t107 đổi lib/tools.js (+ có thể lib/types/tools.d.ts) ⇒ phải pack bộ byte mới"
+    },
+    {
+      "from": "t108",
+      "to": "t109",
+      "kind": "proof",
+      "reason": "audit độc lập tarball vòng 17 + mutation riêng nhắm bản vá removed-visibility"
+    },
+    {
+      "from": "t109",
+      "to": "t110",
+      "kind": "repair",
+      "reason": "audit vòng 17 nêu V17-F2 (cổng t98 mù với hồi quy payload/nested gaps) + V17-F4 (tiêu đề gọi idle là active) + V17-F3 (dòng ALLOW_LIST lệch)"
+    },
+    {
+      "from": "t110",
+      "to": "t111",
+      "kind": "pack",
+      "reason": "t110 đổi lib/tools.js (tiêu đề present) ⇒ phải pack bộ byte mới cho vòng 18"
+    },
+    {
+      "from": "t111",
+      "to": "t112",
+      "kind": "proof",
+      "reason": "audit độc lập tarball vòng 18 + mutation riêng nhắm bản vá cổng t98"
+    },
+    {
+      "from": "t110",
+      "to": "t113",
+      "kind": "repair",
+      "reason": "hệ quả V17-F4: tests/t59-erp-live-copy.mjs vẫn ghim tiêu đề cũ 'Members (N active + M removed)' nên lần chạy sống kế tiếp đỏ vì lý do sai — t59 ngoài inScope t110 nên member đúng khi không sửa"
+    },
+    {
+      "from": "t113",
+      "to": "t114",
+      "kind": "repair",
+      "reason": "khi chấm t113 phát hiện boot 01:03:11Z chạy mã cũ dù nguồn chỉ có 'present' ⇒ BUG-028: cửa sổ ghi không chủ trên lib/tools.js; t114 làm suite sống tự chứng minh hash nguồn trước/sau boot"
+    },
+    {
+      "from": "t111",
+      "to": "t115",
+      "kind": "follow-up",
+      "reason": "card t111 có verify trỏ tệp sai thư mục (tests/t111-pack.mjs thay vì packages/dsh-agent-teams/tests/t111-pack.mjs) và 5 lần member claim chéo do card tạo thiếu assignee ⇒ t115 dựng cổng kiểm hợp đồng trước khi dispatch"
+    },
+    {
+      "from": "t114",
+      "to": "t115",
+      "kind": "follow-up",
+      "reason": "hợp đồng t114 tự mâu thuẫn (13 tệp vs 2 tệp) do captain viết acceptance không đối chiếu brief ⇒ t115 kiểm mâu thuẫn scope/deliverable bằng máy"
+    },
+    {
+      "from": "t114",
+      "to": "t116",
+      "kind": "repair",
+      "reason": "T114-F1: captain chạy lại suite sống t59 sau t114 và ra FAIL C5,C6,C7 (6 tool call) trong khi member PASS 80 giây trước (4 tool call) ⇒ suite chấm theo số lần gọi của model, không theo nghiệp vụ; t116 làm nó tất định"
+    },
+    {
+      "from": "t112",
+      "to": "t117",
+      "kind": "repair",
+      "reason": "V18-F2 (medium): cổng t98 khớp token lá theo GIÁ TRỊ nên bỏ in một trường lồng vẫn xanh (joined_at=4242 trùng route_override.at=4242); V18-F3: hai con số cho cùng nhãn payload_findings ⇒ t117 chấm theo đường dẫn khoá"
+    },
+    {
+      "from": "t112",
+      "to": "t118",
+      "kind": "follow-up",
+      "reason": "V18-F4 (low): vòng 18 không có suite pack nào trong tests/, script pack của t111 chỉ nằm ở tests/tmp nên artefact phát hành không tái lập được từ repo ⇒ t118 đưa suite pack vào repo"
+    },
+    {
+      "from": "t116",
+      "to": "t119",
+      "kind": "follow-up",
+      "reason": "CAP116-F1: mutation của captain (status CUỐI của boot 'xác nhận' một lệnh set xảy ra sau nó, +2 B) không bị t113 bắt ⇒ tính chất 'status ngay SAU mỗi set trong cùng boot' chỉ đúng khi chạy sống, chưa có ca boot-free"
+    },
+    {
+      "from": "t112",
+      "to": "t120",
+      "kind": "follow-up",
+      "why": "audit vong 18 phai tu chay tay 61 suite va tu doan cai nao la artefact lich su -> can cong cu phan loai co trich dan"
+    },
+    {
+      "from": "t117",
+      "to": "t121",
+      "kind": "pack",
+      "why": "lib/tools.js doi (e51734ba/213715) => verdict vong 18 het hieu luc, phai pack vong 19"
+    },
+    {
+      "from": "t121",
+      "to": "t122",
+      "kind": "proof",
+      "why": "audit vong 19 cham tarball t121"
+    },
+    {
+      "from": "t122",
+      "to": "t123",
+      "kind": "repair",
+      "why": "V19-F1 no hop dong t117: cong phai chay TRUOC khi card terminal + ca hoi quy"
+    },
+    {
+      "from": "t122",
+      "to": "t124",
+      "kind": "repair",
+      "why": "V19-F2/F5/F7: sweep phai lay mau bang FROZEN quanh moi suite, ca lat byte tren ban copy .tgz, WARN khong duoc im lang"
+    },
+    {
+      "from": "t122",
+      "to": "t125",
+      "kind": "repair",
+      "why": "V19-F3/F4: allow-list status.removed_count khong duoc cong canh + thong diep fail-closed phai neu key path"
+    },
+    {
+      "from": "t122",
+      "to": "t126",
+      "kind": "repair",
+      "why": "V19-F6 nua con lai: chung minh bo byte PHAT HANH cai tu tgz van chay (dogfood dang la symlink nen chua lan nao chung minh)"
+    },
+    {
+      "from": "t126",
+      "to": "t127",
+      "kind": "proof",
+      "why": "audit doc lap bo byte phat hanh: tu cai o profile khac, tu do 13 sha ban cai, 3 mutation kieu moi tren ban sao"
+    }
+  ],
+  "superseded": {
+    "t51": "t55",
+    "t93": "t96"
+  }
+}
