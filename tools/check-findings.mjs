@@ -28,7 +28,7 @@ const STATUSES = new Set(["CLOSED", "OPEN", "ACCEPTED", "SUPERSEDED"]);
 const SOURCES = new Set(["closure", "auditlog", "cả hai"]);
 const COLUMNS = ["id", "vòng", "severity", "vấn đề", "trạng thái", "đóng bởi", "bằng chứng", "nguồn"];
 const REPORT_REL = "docs/bao-cao-agent-teams.md";
-const REPORT_MAX = 400; // luật chặt: dòng phải NGẮN HƠN 400 ký tự
+const CLOSE_WINDOW = 80; // luật KHOẢNG CÁCH (t163): từ khoá đóng phải nằm trong 80 ký tự NGAY SAU id
 const CLOSE_STRICT = /(?:CLOSED|ĐÃ ĐÓNG|đã đóng|đã vá và đã phát hành)/u;
 const OPEN_SUFFIX = "(không có câu đóng trong tài liệu)";
 const OPEN_SENTENCE = "OPEN = chưa có câu ghi nhận đóng trong tài liệu, KHÔNG phải lỗi còn tồn tại";
@@ -90,16 +90,23 @@ function scanDocs(opts) {
   return { closureFiles: closureFiles.length, closureIds, logIds, union, onlyLog };
 }
 
-// Đọc các DÒNG có câu đóng theo luật chặt: cùng dòng (id + từ khoá đóng) + dòng ngắn hơn 400 ký tự.
+// Luật KHOẢNG CÁCH (t163): một dòng là CÓ CÂU ĐÓNG cho id X khi trong 80 ký tự NGAY SAU X
+// có một từ khoá đóng. KHÔNG còn điều kiện độ dài dòng ⇒ dòng 700 ký tự vẫn tính nếu từ khoá
+// đứng sát id; ngược lại, dòng liệt kê nhiều id rồi mới tới từ khoá chỉ tính các id đủ gần.
 function sentencesIn(file) {
   const out = new Map();
   if (!fs.existsSync(file)) return out;
   fs.readFileSync(file, "utf8").split(/\r?\n/u).forEach((line, i) => {
-    if (line.length >= REPORT_MAX) return;
-    if (!CLOSE_STRICT.test(line)) return;
-    const found = line.match(ID_RE);
-    if (found === null) return;
-    for (const id of new Set(found)) if (!out.has(id)) out.set(id, { line: i + 1, text: line.trim() });
+    ID_RE.lastIndex = 0;
+    let match;
+    while ((match = ID_RE.exec(line)) !== null) {
+      const id = match[0];
+      const window = line.slice(match.index + id.length, match.index + id.length + CLOSE_WINDOW);
+      if (!CLOSE_STRICT.test(window)) continue;
+      const distance = window.search(CLOSE_STRICT);
+      const previous = out.get(id);
+      if (previous === undefined || distance < previous.distance) out.set(id, { line: i + 1, text: line.trim(), distance });
+    }
   });
   return out;
 }
@@ -112,7 +119,10 @@ function scanSentences(opts, docs) {
   }
   const auditSentences = sentencesIn(opts.auditLog);
   const reportSentences = sentencesIn(opts.reportFile);
-  return { closureSentences, auditSentences, reportSentences, closureFiles: docs.closureFiles };
+  let maxDistanceUsed = 0;
+  // số in ra là max của NGUỒN BÁO CÁO (nguồn mà luật khoảng cách sinh ra để chấm); closure/AUDIT.md cũng dùng cùng luật nhưng không nằm trong số này.
+  for (const hit of reportSentences.values()) if (hit.distance > maxDistanceUsed) maxDistanceUsed = hit.distance;
+  return { closureSentences, auditSentences, reportSentences, closureFiles: docs.closureFiles, maxDistanceUsed };
 }
 
 // Mục "Đọc sổ này thế nào" phải nằm NGAY SAU tiêu đề, trước bảng, và nói đủ 4 trạng thái.
@@ -218,9 +228,10 @@ function evaluate(opts) {
   return {
     docs, rows, missing, extra, missingInClosures, missingInAuditLog, extraVsClosures, extraVsAuditLog, duplicates, badStatus, badSource, closedMissingEvidence, badEvidenceShape, rowProblems, counts, problemsTotal,
     reportNotClosed, openMissingSuffix, howToRead, sentences,
-    idsWithClosureSentenceClosures: sentences.closureSentences.size,
-    idsWithClosureSentenceAuditLog: sentences.auditSentences.size,
-    idsWithClosureSentenceReport: sentences.reportSentences.size,
+    idsWithClosureWithin80Closures: sentences.closureSentences.size,
+    idsWithClosureWithin80AuditLog: sentences.auditSentences.size,
+    idsWithClosureWithin80Report: sentences.reportSentences.size,
+    maxDistanceUsed: sentences.maxDistanceUsed,
     idsInClosures: docs.closureIds.size, idsInAuditLog: docs.logIds.size, idsOnlyInAuditLog: docs.onlyLog, unionTotal: docs.union.size,
   };
 }
@@ -236,7 +247,7 @@ function main() {
       idsInClosures: state.idsInClosures, idsInAuditLog: state.idsInAuditLog, idsOnlyInAuditLog: state.idsOnlyInAuditLog, idsOnlyInAuditLogCount: state.idsOnlyInAuditLog.length, unionTotal: state.unionTotal,
       rows: state.rows.length, missing: state.missing, extra: state.extra, missingInClosures: state.missingInClosures, missingInAuditLog: state.missingInAuditLog, extraVsClosures: state.extraVsClosures, extraVsAuditLog: state.extraVsAuditLog, duplicates: state.duplicates, badStatus: state.badStatus,
       badSource: state.badSource, closedMissingEvidence: state.closedMissingEvidence, badEvidenceShape: state.badEvidenceShape, rowProblems: state.rowProblems,
-      idsWithClosureSentenceClosures: state.idsWithClosureSentenceClosures, idsWithClosureSentenceAuditLog: state.idsWithClosureSentenceAuditLog, idsWithClosureSentenceReport: state.idsWithClosureSentenceReport,
+      idsWithClosureWithin80Closures: state.idsWithClosureWithin80Closures, idsWithClosureWithin80AuditLog: state.idsWithClosureWithin80AuditLog, idsWithClosureWithin80Report: state.idsWithClosureWithin80Report, maxDistanceUsed: state.maxDistanceUsed, maxDistanceRule: CLOSE_WINDOW,
       reportNotClosed: state.reportNotClosed, openMissingSuffix: state.openMissingSuffix, howToRead: state.howToRead, reportFile: opts.reportFile,
       closed: state.counts.CLOSED, open: state.counts.OPEN, accepted: state.counts.ACCEPTED, superseded: state.counts.SUPERSEDED,
       problems: state.problemsTotal, strictOpenBlocks: opts.mode === "strict" && state.counts.OPEN > 0,
@@ -262,9 +273,10 @@ function main() {
       + " closed=" + state.counts.CLOSED + " open=" + state.counts.OPEN + " accepted=" + state.counts.ACCEPTED
       + " superseded=" + state.counts.SUPERSEDED + " missingInClosures=" + state.missingInClosures.length + " missingInAuditLog=" + state.missingInAuditLog.length
       + " extraVsClosures=" + state.extraVsClosures.length + " extraVsAuditLog=" + state.extraVsAuditLog.length
-      + " idsWithClosureSentenceClosures=" + state.idsWithClosureSentenceClosures
-      + " idsWithClosureSentenceAuditLog=" + state.idsWithClosureSentenceAuditLog
-      + " idsWithClosureSentenceReport=" + state.idsWithClosureSentenceReport
+      + " idsWithClosureWithin80Closures=" + state.idsWithClosureWithin80Closures
+      + " idsWithClosureWithin80AuditLog=" + state.idsWithClosureWithin80AuditLog
+      + " idsWithClosureWithin80Report=" + state.idsWithClosureWithin80Report
+      + " maxDistanceUsed=" + state.maxDistanceUsed
       + " reportRowsStillOpen=" + state.reportNotClosed.length
       + " openMissingSuffix=" + state.openMissingSuffix.length + " howToReadProblems=" + state.howToRead.length
       + " problems=" + state.problemsTotal

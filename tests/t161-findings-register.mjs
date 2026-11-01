@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// t161/t162 — cổng sổ đăng ký finding: chứng minh sổ KHỚP tài liệu + nguồn báo cáo luật chặt + các đối chứng âm đều đỏ.
+// t161/t162/t163 — cổng sổ đăng ký finding: sổ KHỚP tài liệu + nguồn báo cáo theo LUẬT KHOẢNG CÁCH 80 + các đối chứng âm đều đỏ.
 // Chạy trên BẢN SAO trong tests/tmp/t161/cases (không sửa sổ thật). Run: node tests/t161-findings-register.mjs
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -181,26 +181,62 @@ test("a17 every OPEN row carries the honest suffix (no row claims a closure it l
   assert.ok(open.every((c) => !c[6].startsWith("không tìm thấy bằng chứng đóng |")), "the old wording must be gone");
 });
 
-test("a18 POSITIVE report source: a short CLOSED line turns an OPEN row red", () => {
+test("a18 POSITIVE report source: a short CLOSED line turns a still-OPEN row red", () => {
   const root = freshRoot("report-positive");
-  fs.appendFileSync(reportPath(root), "\n- V19-F1 CLOSED (t123) — synthetic control line for the t162 gate.\n");
+  const before = JSON.parse(run(["--root", root, "--json"]).stdout);
+  fs.appendFileSync(reportPath(root), "\n- V21-F2 CLOSED (t999) — synthetic control line for the t163 gate.\n");
   const r = run(["--root", root]);
   assert.equal(r.code, 1, "the gate must read the new source: " + r.out.slice(0, 400));
-  assert.match(r.out, /REPORT CLOSED-SENTENCE NOT HONOURED: V19-F1 is OPEN/u);
+  assert.match(r.out, /REPORT CLOSED-SENTENCE NOT HONOURED: V21-F2 is OPEN/u);
   const p = JSON.parse(run(["--root", root, "--json"]).stdout);
-  assert.equal(p.idsWithClosureSentenceReport, 3, "two real sentences + the injected one");
-  assert.ok(p.reportNotClosed.some((bad) => bad.id === "V19-F1"));
+  assert.equal(p.idsWithClosureWithin80Report, before.idsWithClosureWithin80Report + 1, "the injected line must add exactly one id");
 });
 
-test("a19 NEGATIVE long line: >400 chars that only names an id is NOT a closure", () => {
-  const root = freshRoot("report-too-long");
-  const long = "- V19-F1 CLOSED (t123) — " + "x".repeat(420);
-  assert.ok(long.length > 400, "control line must exceed the 400-char rule: " + long.length);
-  fs.appendFileSync(reportPath(root), "\n" + long + "\n");
+test("a19 the length of the line is irrelevant: a 700-char line counts when CLOSED sits next to the id", () => {
+  const root = freshRoot("long-line-counts");
+  const line = "- V98-F1 CLOSED (t999): " + "x".repeat(700);
+  assert.ok(line.length > 700, "control line must be long: " + line.length);
+  fs.appendFileSync(reportPath(root), "\n" + line + "\n");
   const r = run(["--root", root]);
-  assert.equal(r.code, 0, "a >400-char line must never count as a closure sentence: " + r.out.slice(-400));
+  assert.equal(r.code, 1, "a long line must be read, not discarded for its length");
+  assert.match(r.out, /REPORT CLOSED-SENTENCE NOT HONOURED: V98-F1 is \(no row in register\)/u);
+});
+
+test("a21 NEGATIVE listing line: V99-F1..V99-F20 CLOSED only credits the ids within 80 chars of the keyword", () => {
+  const root = freshRoot("listing-line");
+  const ids = Array.from({ length: 20 }, (_, i) => "V99-F" + (i + 1));
+  fs.appendFileSync(reportPath(root), "\n" + ids.join(", ") + " CLOSED\n");
   const p = JSON.parse(run(["--root", root, "--json"]).stdout);
-  assert.equal(p.idsWithClosureSentenceReport, 2, "only the two short lines count");
+  const named = p.reportNotClosed.map((bad) => bad.id);
+  assert.ok(named.includes("V99-F20"), "the id right before the keyword must count: " + named.join(","));
+  assert.ok(!named.includes("V99-F1"), "the first id is far from the keyword and must NOT count: " + named.join(","));
+  assert.ok(named.length < ids.length, "the whole line must not be credited: " + named.length + "/" + ids.length);
+});
+
+test("a22 NEGATIVE far keyword: an id whose CLOSED sits >80 chars away is not a closure", () => {
+  const root = freshRoot("far-keyword");
+  const before = JSON.parse(run(["--root", root, "--json"]).stdout);
+  fs.appendFileSync(reportPath(root), "\n- V97-F1 được nhắc ở đây " + "y".repeat(90) + " CLOSED\n");
+  const r = run(["--root", root]);
+  assert.equal(r.code, 0, "a keyword beyond the 80-char window must not close anything: " + r.out.slice(-300));
+  const p = JSON.parse(run(["--root", root, "--json"]).stdout);
+  assert.equal(p.idsWithClosureWithin80Report, before.idsWithClosureWithin80Report);
+  assert.ok(!p.reportNotClosed.some((bad) => bad.id === "V97-F1"));
+});
+
+test("a23 the four V19 rows fixed by t163 are CLOSED with the verbatim report line", () => {
+  const rows = fs.readFileSync(REAL_REGISTER, "utf8").split(/\r?\n/u).filter(isRow).map(cells);
+  for (const id of ["V19-F1", "V19-F3", "V19-F6", "V19-F7"]) {
+    const row = rows.find((c) => c[0] === id);
+    assert.ok(row, id + " must have a row");
+    assert.equal(row[4], "CLOSED", id + " must now be CLOSED, got " + row[4]);
+    assert.match(row[6], /^docs\/bao-cao-agent-teams\.md:\d+ · /u, id + " evidence must open with the report pointer: " + row[6].slice(0, 80));
+    assert.match(row[6], /CLOSED/u, id + " evidence must quote the CLOSED claim");
+  }
+  const p = JSON.parse(run(["--json"]).stdout);
+  assert.ok(p.maxDistanceUsed > 0 && p.maxDistanceUsed <= 80, "maxDistanceUsed must stay inside the rule: " + p.maxDistanceUsed);
+  assert.ok(p.idsWithClosureWithin80Report >= 6, "at least the six V19 ids carry a sentence: " + p.idsWithClosureWithin80Report);
+  assert.ok(p.closed >= 28, "CLOSED must reach 28 (24 + the four V19 rows): " + p.closed);
 });
 
 test("a20 NEGATIVE missing section: deleting 'Đọc sổ này thế nào' turns the gate red", () => {
