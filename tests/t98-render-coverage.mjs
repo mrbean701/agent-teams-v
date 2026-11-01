@@ -75,18 +75,18 @@ const RENDER_LINES = {
     agent_teams_edit_plan: 1142,
     agent_teams_approve: 1254,
     agent_teams_add_member: 1303,
-    agent_teams_set_member_route: 1366,
-    agent_teams_set_member_profile: 1479,
-    agent_teams_remove_member: 1542,
-    agent_teams_create_task: 1630,
-    agent_teams_reassign_task: 1766,
-    agent_teams_claim_task: 1901,
-    agent_teams_update_task: 2071,
-    agent_teams_amend_task: 2240,
-    agent_teams_send_message: 2317,
-    agent_teams_status: 2466,
-    agent_teams_resume: 2698,
-    agent_teams_delete: 2748,
+    agent_teams_set_member_route: 1369,
+    agent_teams_set_member_profile: 1506,
+    agent_teams_remove_member: 1569,
+    agent_teams_create_task: 1657,
+    agent_teams_reassign_task: 1793,
+    agent_teams_claim_task: 1928,
+    agent_teams_update_task: 2098,
+    agent_teams_amend_task: 2267,
+    agent_teams_send_message: 2344,
+    agent_teams_status: 2493,
+    agent_teams_resume: 2725,
+    agent_teams_delete: 2775,
 };
 
 /**
@@ -116,19 +116,19 @@ const ALLOW_LIST = [
     {
         tool: 'agent_teams_set_member_profile',
         field: 'applied',
-        file: 'lib/tools.js:1479-1490',
+        file: 'lib/tools.js:1506-1515',
         reason: 'duplicate: this call is durable-only by construction (lib/members.js:1660 returns applied "durable-only") and the text already says "saved; it takes effect the next time this member starts"',
     },
     {
         tool: 'agent_teams_delete',
         field: 'deleted',
-        file: 'lib/tools.js:2748-2751',
+        file: 'lib/tools.js:2775-2778',
         reason: 'duplicate: the DTO only ever returns true here and the fixed text "ended and archived" already states the outcome, so the flag distinguishes nothing',
     },
     {
         tool: 'agent_teams_status',
         field: 'removed_count',
-        file: 'lib/tools.js:2466-3329',
+        file: 'lib/tools.js:2493-3428',
         reason: 'derived duplicate: the DTO sets removed_count = removedMembers.length (lib/tools.js:2660) and the roster title prints that very number from the same array (lib/tools.js:3328-3329), so no witness can tell the two keys apart and printing it again would be the same number twice — kept ONLY because the gate now enforces that derivation itself (t125 / V19-F3)',
         // A literal, not ROSTER_INVARIANT: this table is built before that constant exists.
         guardedBy: 'agent_teams_status.removed_count === agent_teams_status.removed_members.length, asserted on the real payload AND on the rendered roster title (ROSTER INVARIANT block), plus NEGATIVE CONTROL 6 (a copy whose removed_count reads team.members instead must turn --strict red) and tests/t107-removed-members-visible.mjs (t125 / V19-F3)',
@@ -136,7 +136,7 @@ const ALLOW_LIST = [
     {
         tool: 'agent_teams_update_task',
         field: 'attempt_id',
-        file: 'lib/tools.js:2071-2074',
+        file: 'lib/tools.js:2098-2101',
         reason: 'duplicate: the caller supplied this attempt_id in the same call; claim_task and reassign_task are the surfaces that must echo it (lib/tools.js:1887, lib/tools.js:1752)',
     },
 ];

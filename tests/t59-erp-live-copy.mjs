@@ -73,6 +73,10 @@ const PKG = join(REPO_ROOT, 'packages', 'dsh-agent-teams');
  * updates this table IN THE SAME TASK, otherwise tests/t114-source-freeze.mjs goes red for a
  * reason that has nothing to do with the run it is guarding. The other 12 rows are untouched.
  *
+ * t156: re-measured the two rows t155's start-on-demand change touched — lib/tools.js (new
+ * parameter, runtime bridge and start path) and lib/types/tools.d.ts (the matching types). The
+ * other 11 rows are untouched, which is the point of re-measuring instead of re-writing them.
+ *
  * t129: re-measured the two bundle rows after t128 moved DependencyMap + AddMemberControl
  * above the member list (same byte counts, different bytes). The other 11 rows are untouched.
  *
@@ -105,7 +109,7 @@ const PKG = join(REPO_ROOT, 'packages', 'dsh-agent-teams');
  * its map. The ten other rows were re-measured and did not drift.
  */
 const FROZEN = [
-    { path: 'lib/tools.js', sha256: 'e51734baf4693cd30f4c86aaf577afb58f8afef39788588d900a93621ae62d61', bytes: 213715 },
+    { path: 'lib/tools.js', sha256: '642de17fb176c30151e2dbb95528b03e25a3d06f0f776c7601ae874b5af6ec66', bytes: 221404 },
     { path: 'lib/members.js', sha256: '50f558f8b207d874d3d8052373b2dafc93cfe9ae54100ae03a4a7ed9f8bf1661', bytes: 102260 },
     { path: 'lib/state.js', sha256: '56664c59ff40031989afe32d5d733e3e84d02904f21149314d98d0f49c443485', bytes: 57508 },
     { path: 'lib/snapshot.js', sha256: 'a2a87e1b0c0b34ea1f8cb4a45c195d60d613eca997d0ce0d60e47d1a568c9a60', bytes: 13986 },
@@ -115,7 +119,7 @@ const FROZEN = [
     { path: 'lib/client.js.map', sha256: '718f41544f36ae51c5377be46aef12f343f09147f09e465b2f3581ddc0caa218', bytes: 405694 },
     { path: 'lib/types/members.d.ts', sha256: 'c53250ab41bff8c310f3bed4f808f8c799296878b060670527b8fbc1f749239e', bytes: 31769 },
     { path: 'lib/types/snapshot.d.ts', sha256: '962f99a7bcb18b9482b0d4e6933bde0c79356b885c323c0e60f596e6c0fd1a22', bytes: 7627 },
-    { path: 'lib/types/tools.d.ts', sha256: '41cfc56576ed8ffd8020cba53f6ed7a91ba30382ea46a0e136f02e4d3a67f5c3', bytes: 7546 },
+    { path: 'lib/types/tools.d.ts', sha256: '258c8b6a827a0838fc91157f090dac92b9e44b5137b8adc0e88900ba24be12ef', bytes: 8781 },
     { path: 'lib/client/ActivityPanel.module.css', sha256: '210186828966d0cf4f5db66ca77176cd932f322814e3871f2f6b8379d42d98a6', bytes: 52180 },
     { path: 'package.json', sha256: '92a6404071e457ccc49f485525aab17e467db0e76d4585a50d49997af5451f36', bytes: 10498 },
 ];
