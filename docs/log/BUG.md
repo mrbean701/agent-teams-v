@@ -316,3 +316,13 @@ Hệ quả ghi nhận (đổi cách hiểu sự cố, không đổi mức độ)
 Luật rút ra (đã ghi `docs/log/CHECK.md`):
 1. Card audit/mutation phải mang **outOfScope tuyệt đối** với `packages/dsh-agent-teams/lib` VÀ câu *mọi phép đột biến phải chạy trên bản sao* ngay trong `acceptance`, không chỉ trong brief.
 2. Trước khi member bắt đầu một phép đo có ghi nguồn, captain không được chạy song song một suite đang lấy mẫu chính cây nguồn đó.
+
+### BUG-029 · Pipeline build không nằm trong repo (medium, ĐÃ VÁ 2026-11-01)
+
+**Hiện tượng**: `git clone https://github.com/mrbean701/agent-teams-v` rồi `node packages/dsh-agent-teams/build/build.mjs` ⇒ không có tệp. `.gitignore` ignore cả `packages/dsh-agent-teams/build/`, trong đó có `build.mjs`, `css-module-plugin.js/.mjs`, `test-load.html`.
+
+**Vì sao nguy hiểm**: 3 vòng (t134, t136, t137) đã dùng `build/build.mjs` làm bằng chứng 'sourcemap là sản phẩm pipeline, không phải sửa tay'. Bằng chứng đó chỉ đúng trên máy có thư mục build; người nhận bản phát hành không thể tái lập, và về lâu dài `lib/client.js.map` sẽ quay lại lớp lỗi V20-F1 (map đúng nội dung, sai vị trí cột) mà không ai dựng lại được để so.
+
+**Vá** (commit `0884713`): `.gitignore` chỉ ignore 2 OUTPUT (`build/client.js`, `build/client.js.map`); toàn bộ script + test-load.html nay được track. Kiểm: `git check-ignore -v packages/dsh-agent-teams/build/build.mjs` ⇒ exit 1 (không bị ignore).
+
+**Luật rút ra**: artefact công bố phải đi kèm công cụ sinh ra nó; trước khi công bố một bộ byte, chạy `git ls-files <thư mục sinh ra artefact>` để chắc script sinh artefact cũng nằm trong đó.

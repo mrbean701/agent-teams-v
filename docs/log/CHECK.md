@@ -794,3 +794,7 @@ Khi vá 12 hàng `docs/TODO.md` có dấu `|` thô, tôi ghép ô bằng `join('
 
 ### 3. Chiều mutation còn thiếu: phá CHÍNH bộ kiểm
 Các vòng trước đột biến SẢN PHẨM rồi xem cổng có đỏ. Lượt này đột biến CHÍNH cổng: bỏ đếm WARN fixture trong `tools/sweep-suites.mjs` ⇒ chính `tests/t120` phải đỏ (a21, a22). Nếu cổng không có ca tự-chấm thì một cổng bị làm mù vẫn xanh. Luật: mỗi card cổng phải có ≥1 ca mà đột biến nhắm vào BỘ KIỂM, không chỉ nhắm sản phẩm.
+
+### 4. Dòng `.gitignore` gộp 'script sinh ra' với 'sản phẩm sinh ra'
+`packages/dsh-agent-teams/build/` bị ignore CẢ THƯ MỤC, nên `build/build.mjs` (pipeline thật, esbuild) **không nằm trong repo** — 3 vòng audit trước đều 'chứng minh bằng build' trên máy này, nhưng một bản clone sạch thì không dựng lại được `lib/client.js` + `lib/client.js.map`. Phát hiện chỉ lộ ra khi `git add` báo `The following paths are ignored by one of your .gitignore files`.
+**Luật**: (a) với mỗi artefact đã công bố, phải trả lời được 'clone sạch có dựng lại được không' — kiểm bằng `git check-ignore -v <path>` cho từng tệp NGUỒN (build script, generator, schema); (b) ignore theo TỆP SINH RA, không theo THƯ MỤC, khi trong thư mục đó còn script.
