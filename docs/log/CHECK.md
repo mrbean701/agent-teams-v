@@ -875,3 +875,12 @@ Các vòng trước đột biến SẢN PHẨM rồi xem cổng có đỏ. Lư�
 - **Hệ quả với V26-F1**: finding vẫn hợp lệ nhưng phải phát biểu lại — cổng phải canh **CẶP hàng rào**, không phải canh riêng `withTeamLock`. A2 của t159 (đòi bản sao bỏ khoá phải đỏ) là **bất khả thi** ⇒ t159 FAILED là đúng, và t160 đóng lại với tiêu chí đúng.
 - **Bài học phương pháp**: trước khi viết tiêu chí 'bỏ X thì phải đỏ', phải **grep xem còn hàng rào nào khác** cùng bảo vệ bất biến đó; nếu không, tiêu chí sinh ra một card bất khả thi và một finding sai.
 - **Bài học harness**: đổi `withTeamLock(k, async () => {` thành IIFE phải thêm `()` ở cuối — thiếu thì `await` trả về chính HÀM, bản sao không spawn, và đối chứng trông như 'got 0 sessions' (bắt được nhờ in `starts=N started=[…]` trong assert).
+
+## Vòng 26 (phần 4) — captain: viết lại README theo yêu cầu người dùng
+
+- Yêu cầu (m08808): commit + push nhánh `main`, set `main` làm default, viết lại README đầy đủ chức năng.
+- README cũ 50 dòng/2 572 B (còn trỏ tarball vòng 19 đã hết hiệu lực) ⇒ viết lại **234 dòng/20 524 B**, 10 mục: cài đặt (kiểm sha trước khi cài) · 8 nhóm chức năng · bảng 16 tool · cổng kiểm + bộ test · build · quy trình phát hành · giới hạn đã biết · cấu trúc repo · đọc thêm · license.
+- Số liệu trong README đều ĐO LẠI trước khi viết, không copy từ báo cáo: `sweep-suites --list` ⇒ `totals: 75 suite(s) = 9 LIVE + 8 pack + 49 fast; legacy exceptions: 12` cho `--root tests`, `85 suite(s) = 10 LIVE + 12 pack + 50 fast` cho toàn bộ; `tests/*.mjs` = 75 tệp; `packages/dsh-agent-teams/tests/*.mjs` = 10 tệp; `lib/**` = 38 tệp JS/1 147 093 B.
+- Lỗi của captain khi viết: lần đầu ghi '74 suite' theo con số cũ của báo cáo ⇒ sau khi đo lại phải sửa 2 chỗ. Bài học lặp lại lần thứ ba: mọi con số vào tài liệu phải đo tại thời điểm viết.
+- Bảng markdown trong README được kiểm bằng máy (đếm `|` chưa escape theo từng bảng): 0 bảng lệch cột.
+- `.gitignore`: thêm `out/` — thư mục scratch `out/portrait-smile/` (22 tệp, ảnh 5 MB) không thuộc plugin và không được commit; ignore chứ KHÔNG xoá.

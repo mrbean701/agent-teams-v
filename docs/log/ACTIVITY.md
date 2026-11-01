@@ -617,3 +617,29 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | byte bản cài | `start_if_needed` x4 @83 501 · `startMemberOnDemandNow` x2 @180 533 · `client.js` GIỐNG vòng 25 |
 | audit t158 | PASS; 5 mutation (M1/M2/M3/M4 đỏ, **M5 bỏ lock ⇒ 11/11 xanh = V26-F1 medium**); sweep PASS=45 FAIL=1 timeout (t154) |
 | bản đang cài `desktop` | vòng 26 (5/5 tệp kiểm khớp) |
+
+## Vòng 26 (phần 3) — bảng đo captain: kiểm chứng 'các kết quả audit đã được giải quyết' + giao t161
+
+| # | Phép đo | Lệnh / cách đo | Kết quả |
+|---|---|---|---|
+| 1 | Số tệp closure trong `docs/audit` | `readdirSync` | 27 tệp |
+| 2 | Id finding duy nhất trong `docs/audit/closure*.md` | regex `\b(?:V\d+|VB)-F\d+\b` | **120 id** (có id ở vòng 6–26 + `closure-bytes-phat-hanh`) |
+| 3 | Vòng KHÔNG có id trong closure | cùng phép 2 | vòng 16, 22, 24 = 0 id trong closure |
+| 4 | Id chỉ có trong `docs/log/AUDIT.md` | `comm -23` hai tập | **11 id**: `V22-F0` (high), `V3-F1..V3-F6`, `V5-F1..V5-F4` |
+| 5 | `docs/TODO.md` có cột trạng thái finding không | `grep -c CLOSED` | **0** ⇒ không kiểm được finding nào còn mở |
+| 6 | Báo cáo nhắc bao nhiêu dòng finding | đếm dòng khớp regex | 31 dòng (không đủ để đối chiếu 131 id) |
+| 7 | Hàng TODO sau khi thêm t161 | đếm pipe chưa escape | 161 hàng, phân bố 7 pipe = 161/161 (đã chuẩn hoá 1 hàng bị 10 pipe) |
+
+⇒ Kết luận: tiêu chí hoàn thành MASTER TASK mục 11 ('các kết quả audit đã được giải quyết') hiện KHÔNG kiểm chứng được bằng máy. Giao **t161** cho `audit-goat`: dựng `docs/audit/findings-register.md` (hợp hai nguồn) + `tools/check-findings.mjs` (so tập hai chiều, exit 0/1/2) + suite ≥10 ca với 5 đối chứng âm. Cổng hợp đồng PASS 6/6; amend rev 1 (acceptance: cột `nguồn` + A7 cho 11 id auditlog) và rev 2 (objective khớp nguồn hợp).
+
+## Vòng 26 (phần 4) — chấm t161 + t162, viết lại README, chuẩn bị nhánh `main`
+
+| # | Việc | Bằng chứng |
+|---|---|---|
+| 1 | Chấm t161 (sổ finding) | hash 3/3 khớp (`a976ab01…`/46 835 B · `6a1a0c3e…`/18 395 B · `97e184fd…`/12 931 B); 131 hàng = 131 id hợp 2 nguồn; `check-findings` EXIT 0 |
+| 2 | Phát hiện 2 lỗi ĐO của t161 | (a) 7 hàng `V19-F1..F7` để OPEN dù báo cáo ghi CLOSED kèm task id; (b) OPEN chưa nói rõ nghĩa ⇒ mở **t162** (repair, `sourceFindingIds=[T161-K1,T161-K2]`) |
+| 3 | Chấm t162 | hash 3/3 khớp; suite **20/20**; `check-findings` EXIT 0; đối chứng dương/âm đều đúng; KQ 131 hàng = CLOSED 24 / OPEN 95 / ACCEPTED 9 / SUPERSEDED 3 |
+| 4 | Giới hạn còn lại của t162 | luật '<400 ký tự' do captain đặt quá thô: 4 hàng `V19-F1/F3/F6/F7` vẫn OPEN dù có dòng `- **V19-Fx CLOSED** (tNNN…)` (dòng 700/703/402/441 ký tự, từ khoá cách id đúng **7** ký tự) ⇒ mở **t163** đổi sang luật KHOẢNG CÁCH |
+| 5 | Viết lại README | 50 dòng/2 572 B → **234 dòng/20 524 B**; số liệu đo lại (`sweep --list --root tests` = 75 suite: 9 LIVE + 8 pack + 49 fast, 12 LEGACY; toàn bộ 85 suite; `tests/*.mjs` 75; package 10; `lib/**` 38 tệp/1 147 093 B); bảng markdown kiểm bằng máy: 0 lệch cột |
+| 6 | `.gitignore` | thêm `out/` (scratch `out/portrait-smile/` 22 tệp, ảnh 5 MB — ignore, KHÔNG xoá) |
+| 7 | TODO | thêm hàng t162, đánh VERIFIED cho t161+t162 ⇒ **162 hàng/162 id**, phân bố pipe 7/7 = 162/162; header `VERIFIED=152 · CANCELLED=6 · SUPERSEDED=3 · FAILED=3 · IN_PROGRESS=0 · OPEN=0` |

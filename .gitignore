@@ -13,3 +13,6 @@ packages/dsh-agent-teams/build/client.js.map
 packages/dsh-agent-teams/tmp/
 # bản sao mã nguồn host dùng để nghiên cứu (không phải mã của repo này)
 docs/nghien-cuu/scratch/
+
+# scratch ngoài phạm vi plugin (ví dụ out/portrait-smile) — không track, không xoá
+out/
