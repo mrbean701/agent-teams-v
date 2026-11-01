@@ -752,3 +752,10 @@ Bài học 2 — **render của tool không byte-exact giữa hai phiên trên c
 Bài học 3 — kiểm tồn tại ≠ đảm bảo nội dung: audit t127 tự tái lập `FAIL (a)` trên card t127 (createdAt 02:37:44Z < mtime suite 02:44:09Z) và đồng ý cách xử lý chuyển lệnh thành acceptance B0, KHÔNG thêm miễn trừ 'tệp do dependency tạo'. Miễn trừ đó sẽ mở đường cho verify trang trí.
 
 Chốt: người dùng quyết định DỪNG vòng lặp sau t127. Không mở V20; không đổi version; không commit/publish. Finding VB-F3 chuyển thành việc mở bàn giao (chỉ chạm `tests/**`, không ảnh hưởng verdict phát hành).
+
+## Vòng 20 — captain: chốt thứ tự panel + mở 5 card (2026-11-01)
+
+1. `ask_user_question` hỏi vị trí `DependencyMap` bị **deadline 120 s của `run_code` cắt** (mặc định `timeoutMs` 120000) ⇒ câu hỏi không tới được người dùng. Bài học: gọi tool tương tác phải nâng `timeoutMs` (tối đa 600000) hoặc không dùng trong `run_code`.
+2. Vì không có dữ liệu nào truy ra 'vị trí cũ' (21 bản cài plugin trên máy đều cùng thứ tự; docs/log không ghi), captain chốt **giả định (A)**: thứ tự mới = `[ProgressOverview, DependencyMap, AddMemberControl, (members IIFE), workspace && WorkspaceSummary]`. Người dùng nói 'về vị trí cũ' ⇒ hiểu là dependency bị đẩy XUỐNG dưới trước đó; form add-member đứng ngay trên danh sách.
+3. Đo trước khi giao: `lib/client.js` 258 432 B (258 271 ký tự), anchor `ProgressOverview` 175 575 · `orderDelegationMembers` 175 654 · `AddMemberControl` 181 760 · `DependencyMap` 181 856; `lib/client.js.map` 19 sources, `sources[2]='../lib/client/ActivityPanel.js'`, `sourcesContent[2]` TRÙNG KHỚP byte với nguồn ⇒ map phải cập nhật cùng lúc.
+4. Luật nhắc lại: card phải mang `assignee` ngay khi tạo (đã làm), và `tools/check-contract.mjs` phải PASS trước khi gửi brief. t131 FAIL (a) vì verify trỏ hai suite do t128/t129 tạo sau ⇒ `amend_task` rev 1 chuyển chúng thành acceptance.

@@ -28,7 +28,10 @@ const bundlePath = path.join(pkgDir, 'lib', 'client.js');
 // stale or half-built lib/client.js passed silently. The identity of the shipped
 // bundle is pinned here and ASSERTED below. Both values come from the artifact
 // produced by `node build/build.mjs` inside packages/dsh-agent-teams.
-const EXPECTED_BUNDLE_SHA256 = '9da18d9971a284e936d709db592da6cedcdf1afa960fff282d7a1c802fec7007';
+// t129: re-measured after t128 moved DependencyMap + AddMemberControl above the member
+// list (the same byte count, different bytes). Measured with node:crypto over the file
+// bytes, not copied from t59's FROZEN table.
+const EXPECTED_BUNDLE_SHA256 = '377bcea2394cc0ac3dd69b7c1dba05b56e90b0d5db9a1b565840e057bc0cb47d';
 const EXPECTED_BUNDLE_BYTES = 258432;
 
 let failures = 0;
@@ -169,6 +172,49 @@ const hashMutated = source + '\n';
 const hashMutatedProblems = bundleHashProblems(hashMutated);
 check('mutation: one appended byte breaks the pinned identity', hashMutatedProblems.length > 0 && hashMutated !== source,
     'applies: ' + (hashMutated !== source) + ', delta ' + (Buffer.byteLength(hashMutated) - Buffer.byteLength(source)) + ' B, problems: ' + hashMutatedProblems.join('; '));
+
+// ---------------------------------------------------------------- check 2b (t129)
+// The pin above catches 'the bundle is not the artifact I measured'. It cannot catch
+// 'the artifact is measured but its parts sit in the wrong order': the same 258 432
+// bytes could be pinned while the panel above the member list reads wrong. t128 moved
+// DependencyMap + AddMemberControl ABOVE the members IIFE, so their ORDER is asserted
+// here, with an in-memory negative control built from the OLD order.
+const PANEL_ORDER = [
+    ['DependencyMap above the member list', 'DependencyMap, { tasks'],
+    ['AddMemberControl above the member list', 'AddMemberControl, { team'],
+    ['the member list (orderDelegationMembers call)', 'orderDelegationMembers(team.members, team.tasks)'],
+];
+function panelOrderProblems(text) {
+    const problems = [];
+    const seen = [];
+    for (const [label, marker] of PANEL_ORDER) {
+        const count = text.split(marker).length - 1;
+        if (count !== 1) problems.push(label + ': ' + JSON.stringify(marker) + ' occurs ' + count + 'x, expected exactly 1');
+        seen.push({ label, index: text.indexOf(marker) });
+    }
+    for (let i = 1; i < seen.length; i += 1) {
+        const prev = seen[i - 1];
+        const cur = seen[i];
+        if (prev.index === -1 || cur.index === -1) continue;
+        if (!(prev.index < cur.index)) {
+            problems.push(prev.label + ' @' + prev.index + ' must precede ' + cur.label + ' @' + cur.index);
+        }
+    }
+    return problems;
+}
+const orderProblems = panelOrderProblems(source);
+check('panel order: DependencyMap < AddMemberControl < member list', orderProblems.length === 0,
+    orderProblems.length === 0
+        ? PANEL_ORDER.map((entry) => entry[1] + '@' + source.indexOf(entry[1])).join(' < ')
+        : orderProblems.join('; '));
+// Negative control in memory: the pre-t128 order (AddMemberControl and DependencyMap
+// both BELOW the member list) must fail the SAME predicate, otherwise the check above
+// could only ever pass by construction.
+const oldOrderSource = [PANEL_ORDER[1][1], PANEL_ORDER[2][1], PANEL_ORDER[0][1]].join('\n');
+const oldOrderProblems = panelOrderProblems(oldOrderSource);
+check('mutation: the pre-t128 order fails the same order check',
+    oldOrderProblems.length > 0 && oldOrderProblems.every((problem) => problem.includes('must precede')),
+    'applies: ' + (oldOrderSource !== source) + ', problems: ' + oldOrderProblems.join('; '));
 
 // ---------------------------------------------------------------- check 3
 const requireFromPkg = createRequire(path.join(pkgDir, 'package.json'));

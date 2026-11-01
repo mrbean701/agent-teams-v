@@ -438,3 +438,14 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | 4 | Commit | `b3dbebba7e82e4fb1616df6b00aff1ff5610364d` |
 | 5 | Push | `origin/unity` cùng sha; `git ls-tree -r origin/unity` = 385 tệp; working tree clean |
 | 6 | Kiểm lại bộ byte sau commit | `dist/vong-19/…tgz` sha `2770fbfc…` / 2 248 092 B — không đổi |
+
+## Vòng 20 — bảng đo captain trước khi giao (2026-11-01)
+
+| Phép đo | Kết quả |
+|---|---|
+| `lib/client/ActivityPanel.js` | 64 004 B · bố cục cũ ở dòng 392 (`ProgressOverview`, rồi IIFE members) và 437 (`AddMemberControl` → `DependencyMap` → `WorkspaceSummary`) |
+| `lib/client.js` (bundle Host nạp) | 258 432 B / 3 217 dòng · `window.__ModuleLoader__.load({ id: '@nami/dsh-agent-teams', factory })` · anchor: ProgressOverview 175 575, orderDelegationMembers 175 654, AddMemberControl 181 760, DependencyMap 181 856 |
+| `lib/client.js.map` | 19 sources, `sourcesContent[2]` = nguồn `ActivityPanel.js` khớp byte |
+| Toolchain | KHÔNG có: `tsconfig.json`/`tsconfig.client.json`/`tsdown` config vắng mặt; `scripts/clean-build.mjs`, `scripts/git-artifacts.mjs` không tồn tại ⇒ sửa tay bundle |
+| Pin hiện tại | `tests/t10-ui-bundle-smoke.mjs` sha `9da18d99…fec7007` / 258 432 B; `tests/t59-erp-live-copy.mjs` FROZEN 13 dòng |
+| Roster | 5 member goat flash đều idle; 3 task chưa terminal: t51 failed, t66 pending, t93 pending |

@@ -389,7 +389,7 @@ export function TeamSection({ team, modelDirectory, onContinuePlanning, onDiscar
                                                                 ? 'captain.state.collected'
                                                                 : allSettled
                                                                     ? 'captain.state.settled'
-                                                                    : 'captain.state.waiting')] })] }), _jsx(ProgressOverview, { team: team, t: t, discarded: discarded }), (() => {
+                                                                    : 'captain.state.waiting')] })] }), _jsx(ProgressOverview, { team: team, t: t, discarded: discarded }), _jsx(DependencyMap, { tasks: team.tasks, members: team.members, t: t, discarded: discarded, workspace: workspace, onSelectTask: setSelectedTaskId }), _jsx(AddMemberControl, { team: team, modelDirectory: modelDirectory, t: t, historic: historic, stopped: stopped }), (() => {
                                 const orderedMembers = orderDelegationMembers(team.members, team.tasks);
                                 const runningMembers = orderedMembers.filter((member) => (member.activity === 'working' || member.status === 'working'
                                     || team.tasks.some((task) => task.assignee === member.name
@@ -434,7 +434,7 @@ export function TeamSection({ team, modelDirectory, onContinuePlanning, onDiscar
                                                                                 return (_jsx("span", { className: css.assignmentChip, "data-state": discarded ? 'cancelled' : taskTone(task.state, task.status), "data-verdict-stale": task.verdictStale === undefined ? undefined : 'true', "data-task-model": model || undefined, title: taskTitle(task, model), children: task.state === 'running' && shortModel !== '' ? `${task.id} · ${shortModel}` : task.id }, task.id));
                                                                             }) })] })] }, member.id || member.name));
                                                 })] })] }));
-                            })()] }), _jsx(AddMemberControl, { team: team, modelDirectory: modelDirectory, t: t, historic: historic, stopped: stopped }), _jsx(DependencyMap, { tasks: team.tasks, members: team.members, t: t, discarded: discarded, workspace: workspace, onSelectTask: setSelectedTaskId }), workspace && _jsx(WorkspaceSummary, { team: team, t: t, discarded: discarded })] }), _jsx(Modal, { open: stopOpen, onClose: () => { if (!stopping)
+                            })()] }), workspace && _jsx(WorkspaceSummary, { team: team, t: t, discarded: discarded })] }), _jsx(Modal, { open: stopOpen, onClose: () => { if (!stopping)
                     setStopOpen(false); }, title: t('team.stopTitle', { team: team.name }), closeLabel: t('plan.cancel'), description: t('team.stopDescription', { tasks: unfinishedCount, members: busyCount }), footer: (_jsxs("span", { className: css.stopModalActions, children: [_jsx("button", { type: "button", disabled: stopping, onClick: () => { setStopOpen(false); }, children: t('team.stopCancel') }), _jsxs("button", { type: "button", "data-danger": true, disabled: stopping, onClick: () => { void stopTeam(); }, children: [_jsx(IconStopFill16, {}), stopping ? t('team.stopping') : t('team.stopConfirm')] })] })), children: stopError !== '' && _jsxs("p", { className: css.stopModalError, role: "alert", children: [_jsx(IconWarningOutline16, {}), stopError] }) })] }));
 }
 /** Legacy conversation cards may outlive their host archive. Project their

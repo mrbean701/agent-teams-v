@@ -2,7 +2,7 @@
 
 > File sinh tu dong boi `node tools/dependency-report.mjs`. KHONG sua tay: sua du lieu goc roi chay lai.
 > Nguon: `.agent-teams/nami-agent-teams/team.json` (canh that) + `docs/provenance-tasks.json` (canh provenance).
-> Sinh luc: 2026-11-01T03:07:53.742Z · pha doi: **running** · 127 task / 15 member.
+> Sinh luc: 2026-11-01T04:17:23.500Z · pha doi: **running** · 134 task / 15 member.
 
 ## 1. Cach doc
 
@@ -20,6 +20,7 @@ flowchart LR
     t1["t1<br/>✅ completed<br/>nghien-cuu"]
     t9["t9<br/>✅ completed<br/>dev-tools-flash"]
     t57["t57<br/>✅ completed<br/>dev-ui-goat"]
+    t128["t128<br/>✅ completed<br/>dev-ui-goat"]
   end
   subgraph W1["Song 1"]
     direction TB
@@ -27,11 +28,13 @@ flowchart LR
     t5["t5<br/>✅ completed<br/>kiem-thu"]
     t22["t22<br/>✅ completed<br/>dev-tools-flash"]
     t60["t60<br/>✅ completed<br/>dev-ui-goat"]
+    t129["t129<br/>✅ completed<br/>dev-runtime-goat"]
   end
   subgraph W2["Song 2"]
     direction TB
     t3["t3<br/>✅ completed<br/>dev-runtime-flash"]
     t4["t4<br/>✅ completed<br/>dev-tools-flash"]
+    t130["t130<br/>✅ completed<br/>dev-build-flash"]
   end
   subgraph W3["Song 3"]
     direction TB
@@ -41,6 +44,8 @@ flowchart LR
     t15["t15<br/>✅ completed<br/>dev-runtime-flash"]
     t16["t16<br/>✅ completed<br/>dev-tools-flash"]
     t20["t20<br/>✅ completed<br/>nghien-cuu"]
+    t131["t131<br/>✅ completed<br/>audit-goat"]
+    t132["t132<br/>✅ completed<br/>kiem-thu-goat"]
   end
   subgraph W4["Song 4"]
     direction TB
@@ -49,6 +54,8 @@ flowchart LR
     t17["t17<br/>✅ completed<br/>dev-runtime-flash"]
     t18["t18<br/>✅ completed<br/>kiem-thu"]
     t21["t21<br/>✅ completed<br/>kiem-thu"]
+    t133["t133<br/>⬜ claimed<br/>kiem-thu-goat"]
+    t134["t134<br/>⬜ claimed<br/>dev-build-flash"]
   end
   subgraph W5["Song 5"]
     direction TB
@@ -418,6 +425,12 @@ flowchart LR
   t120 --> t121
   t121 --> t122
   t126 --> t127
+  t128 --> t129
+  t129 --> t130
+  t130 --> t131
+  t130 --> t132
+  t132 --> t133
+  t131 --> t134
   t3 -.->|rework| t14
   t4 -.->|follow-up| t15
   t4 -.->|rework| t16
@@ -558,6 +571,12 @@ flowchart LR
   t122 -.->|repair| t125
   t122 -.->|repair| t126
   t126 -.->|proof| t127
+  t128 -.->|follow-up| t129
+  t129 -.->|pack| t130
+  t130 -.->|proof| t131
+  t130 -.->|verification| t132
+  t132 -.->|repair| t133
+  t131 -.->|repair| t134
 ```
 
 ## 2. Bang theo song (thu tu thi cong)
@@ -567,23 +586,30 @@ flowchart LR
 | 0 | t1 | ✅ completed | nghien-cuu | — | — |
 | 0 | t9 | ✅ completed | dev-tools-flash | — | — |
 | 0 | t57 | ✅ completed | dev-ui-goat | — | — |
+| 0 | t128 | ✅ completed | dev-ui-goat | — | — |
 | 1 | t2 | ✅ completed | nghien-cuu | t1 | — |
 | 1 | t5 | ✅ completed | kiem-thu | t1 | — |
 | 1 | t22 | ✅ completed | dev-tools-flash | t9 | — |
 | 1 | t60 | ✅ completed | dev-ui-goat | — | t57 (sequence) |
+| 1 | t129 | ✅ completed | dev-runtime-goat | t128 | t128 (follow-up) |
 | 2 | t3 | ✅ completed | dev-runtime-flash | t2 | — |
 | 2 | t4 | ✅ completed | dev-tools-flash | t2 | — |
+| 2 | t130 | ✅ completed | dev-build-flash | t129 | t129 (pack) |
 | 3 | t6 | ✅ completed | audit-kimi | t3, t4 | — |
 | 3 | t10 | ✅ completed | dev-ui-goat | t4, t9 | t22 (rework) |
 | 3 | t14 | ✅ completed | dev-runtime-flash | — | t3 (rework) |
 | 3 | t15 | ✅ completed | dev-runtime-flash | — | t4 (follow-up) |
 | 3 | t16 | ✅ completed | dev-tools-flash | — | t4 (rework) |
 | 3 | t20 | ✅ completed | nghien-cuu | t3, t4 | — |
+| 3 | t131 | ✅ completed | audit-goat | t130 | t130 (proof) |
+| 3 | t132 | ✅ completed | kiem-thu-goat | t130 | t130 (verification) |
 | 4 | t7 | ✅ completed | nghien-cuu | t6 | — |
 | 4 | t8 | ✅ completed | dev-tools-flash | t6 | — |
 | 4 | t17 | ✅ completed | dev-runtime-flash | — | t15 (follow-up) |
 | 4 | t18 | ✅ completed | kiem-thu | — | t15 (proof) |
 | 4 | t21 | ✅ completed | kiem-thu | t15, t16 | — |
+| 4 | t133 | ⬜ claimed | kiem-thu-goat | t132 | t132 (repair) |
+| 4 | t134 | ⬜ claimed | dev-build-flash | t131 | t131 (repair) |
 | 5 | t19 | ✅ completed | audit-kimi | — | t6 (audit-closure), t7 (audit-closure), t8 (audit-closure) |
 | 6 | t11 | ✅ completed | kiem-thu-goat | t10, t18, t19 | — |
 | 7 | t12 | ✅ completed | audit-goat | t11 | — |

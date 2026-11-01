@@ -1,7 +1,7 @@
 {
   "$comment": "Derived task relations that the AgentTeams DAG cannot hold retroactively (edit_plan refuses started tasks). Generator tools/dependency-report.mjs merges these with team.json dependencies.",
   "team": "nami-agent-teams",
-  "updatedAt": "2026-11-01T02:39:07.496Z",
+  "updatedAt": "2026-11-01T04:17:23.307Z",
   "edges": [
     {
       "from": "t3",
@@ -842,6 +842,42 @@
       "to": "t127",
       "kind": "proof",
       "why": "audit doc lap bo byte phat hanh: tu cai o profile khac, tu do 13 sha ban cai, 3 mutation kieu moi tren ban sao"
+    },
+    {
+      "from": "t128",
+      "to": "t129",
+      "kind": "follow-up",
+      "why": "doi thu tu panel lam pin bundle t10 + bang FROZEN t59 thanh SAI ⇒ phai cap nhat trong cung vong"
+    },
+    {
+      "from": "t129",
+      "to": "t130",
+      "kind": "pack",
+      "why": "pack vong 20 tren bundle moi"
+    },
+    {
+      "from": "t130",
+      "to": "t131",
+      "kind": "proof",
+      "why": "audit doc lap bo byte vong 20 + danh gia rui ro sua tay bundle"
+    },
+    {
+      "from": "t130",
+      "to": "t132",
+      "kind": "verification",
+      "why": "chung minh DOM panel dung thu tu moi tren ban da cai"
+    },
+    {
+      "from": "t132",
+      "to": "t133",
+      "kind": "repair",
+      "why": "vá T132-F1 (analyze ghi đè artifact của chính nó) + T132-F2 (CLI fail-open)"
+    },
+    {
+      "from": "t131",
+      "to": "t134",
+      "kind": "repair",
+      "why": "V20-F1 sourcemap mappings lệch + V20-F2 WARN sweep + V20-F3 t118-pack → LEGACY"
     }
   ],
   "superseded": {

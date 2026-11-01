@@ -181,3 +181,10 @@ Audit vòng 18 đã chốt tarball `t111` là phát hành được, nhưng chín
 Vòng 19 chốt được bộ byte phát hành, nhưng ba finding medium đều nói về CÙNG một lớp: **cổng của đội chỉ đúng trong miền nó lấy mẫu**. (1) V19-F1: luật chống nợ hợp đồng có trong công cụ nhưng được chạy SAU khi card đã terminal ⇒ luật tồn tại mà không có hiệu lực. (2) V19-F2: lớp BUG-028 (một tiến trình ghi nguồn rồi trả lại đúng byte) chỉ bị bắt bởi suite pack có ba mốc; mọi cổng khác chỉ mẫu quanh boot ⇒ cửa sổ 20 giây là vô hình — và hôm nay chính cửa sổ đó làm đỏ oan một lần chạy hợp lệ. (3) V19-F3: cổng render-parity có một entry allow-list mà bất biến của nó chỉ đúng NHỜ cấu trúc dữ liệu, không nhờ phép kiểm ⇒ mutation phá bất biến vẫn cho cổng xanh.
 
 Với người vận hành ERP, hệ quả không phải chuyện học thuật: cả ba đều là kiểu lỗi 'CI xanh mà sản phẩm sai'. Vì vậy captain không ghi nhận suông — mở ngay t123/t124/t125, mỗi card có đối chứng âm bắt buộc (phải chứng minh cổng MỚI bắt được đúng lớp lỗi cũ), và cả ba chỉ chạm `tools/**` + `tests/**` nên verdict phát hành vòng 19 vẫn còn hiệu lực.
+
+## Vòng 20 — vì sao phải mở vòng (2026-11-01)
+
+Người dùng yêu cầu đổi THỨ TỰ panel: đưa `DependencyMap` về vị trí cũ và đặt nút/form `AddMemberControl` ngay TRÊN danh sách member.
+Hệ quả kỹ thuật: Host nạp panel từ bundle `lib/client.js` (exports `./client`), nên mọi thay đổi UI phải vào cả ba tệp `lib/client/ActivityPanel.js`, `lib/client.js`, `lib/client.js.map`.
+Verdict audit vòng 19 (`docs/audit/closure-vong-19.md`, mốc `2026-11-01T03:05:21Z`) gắn với điều kiện 'lib/** không đổi 1 byte' ⇒ đổi `lib/client.js` là **vô hiệu hoá verdict** ⇒ bắt buộc pack vòng 20 (t130) + audit vòng 20 (t131) trước khi công bố.
+Rủi ro riêng của vòng này: repo KHÔNG còn toolchain build (`tsconfig.json`, `tsconfig.client.json`, `tsdown` config đều không tồn tại; `scripts/clean-build.mjs` và `scripts/git-artifacts.mjs` không có) ⇒ bundle phải sửa TAY và phải có cổng đồng bộ source↔bundle↔map, nếu không 'sửa nguồn mà bundle cũ' sẽ là lớp lỗi mới.
