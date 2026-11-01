@@ -231,3 +231,11 @@ Vì `lib/client.js.map` đổi ⇒ bộ byte phát hành đổi ⇒ phải pack 
 - **Đánh đổi đã đo và CHẤP NHẬN**: `contain:size` khiến chiều cao tối thiểu của card = padding+border (38 px) nên khi cột trái chỉ còn 1 hàng thì card phải cao hơn 16 px — nhưng nội dung **vẫn cuộn nội bộ** (đo: scrollH 95 > clientH 36) nên không mất truy cập. Trong app, cột trái luôn có header + delegation cell nên ca này không lộ.
 - **Vì sao không quay lại JS**: JS đo phụ thuộc thời điểm (ref null, tab ẩn, layout chưa xong) và **suite không phát hiện được** — bài học đã ghi ở CHECK vòng 25. CSS thuần sai thì sai ngay ở lần vẽ đầu, không có trạng thái trung gian.
 - **Phạm vi vòng 25**: 5 tệp đổi (3 nguồn + bundle + map), 10 dòng FROZEN còn lại phải nguyên; verdict vòng 23 hết hiệu lực; vòng 24 CHƯA audit và bị vòng 25 thay ⇒ không có bộ byte nào khác được phép công bố.
+
+## Vòng 26 — vì sao có start-on-demand và vì sao là OPT-IN
+
+- **Vấn đề người dùng gặp**: 14 hồ sơ ERP đều có `id` bền nên `lib/tools.js:544-545` khiến plugin không bao giờ spawn lại; `set_member_route` chỉ durable-only ⇒ người dùng thấy 'đổi model không có hiệu lực' dù `status` ghi `working`.
+- **Quyết định của người dùng**: publish npm · KHÔNG xoá `@nanmicoder/dsh-agent-teams@0.1.28` · làm theo khuyến nghị của captain ⇒ **opt-in**, mặc định KHÔNG đổi hành vi.
+- **Vì sao opt-in chứ không mặc định bật**: tự spawn phiên là hành vi có chi phí (tiền, phiên sống) và có thể bất ngờ; cờ `start_if_needed` buộc người gọi nói rõ ý định, còn `agent_teams_add_member` giữ nguyên đường cũ.
+- **Cái giá đã chấp nhận**: sau lần start đầu, dòng `working` trong `team.json` mất provenance `source:'erp'` (override bị escalate vào `provider/model`) — đã ghi trong tài liệu và finding V26-F3.
+- **Nợ kỹ thuật còn lại**: V26-F1 — cần ca đua có cửa sổ thật (đầu dò trễ) + đối chứng âm bỏ khoá để cổng canh được `withTeamLock`.

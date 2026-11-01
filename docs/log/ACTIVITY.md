@@ -607,3 +607,13 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | ERP gốc | sha `9f7420b6a1af…`/1 533 117 B/mtimeMs 1792817593185.6294 — KHÔNG đổi |
 | bằng chứng hot-switch | `…applied to the live session and saved…` + `routeOverride{source:'captain', by:'session-b0f4bfe5-…'}` |
 | phát hiện | hồ sơ ERP có `id` bền ⇒ chỉ durable-only (`lib/tools.js:544-545`), hot-switch thật cần phiên sống |
+
+## Vòng 26 — captain chấm t155/t156/t157/t158 (opt-in start-on-demand)
+
+| Phép đo | Kết quả |
+| --- | --- |
+| cây sau t156 (captain tự chạy) | t98 `--strict` GREEN · t114 16/16 · t99 11/11 · t155 11/11 · t115 43/43 · t113 38/38 · t107 13/13 · `lib/**` drift 0/6 |
+| tarball vòng 26 | `8ef366ed…`/2 250 654 B/133 entry · `--analyze` EXIT 0 **30 PASS / 0 FAIL** |
+| byte bản cài | `start_if_needed` x4 @83 501 · `startMemberOnDemandNow` x2 @180 533 · `client.js` GIỐNG vòng 25 |
+| audit t158 | PASS; 5 mutation (M1/M2/M3/M4 đỏ, **M5 bỏ lock ⇒ 11/11 xanh = V26-F1 medium**); sweep PASS=45 FAIL=1 timeout (t154) |
+| bản đang cài `desktop` | vòng 26 (5/5 tệp kiểm khớp) |

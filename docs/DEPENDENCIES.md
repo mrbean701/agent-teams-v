@@ -2,7 +2,7 @@
 
 > File sinh tu dong boi `node tools/dependency-report.mjs`. KHONG sua tay: sua du lieu goc roi chay lai.
 > Nguon: `.agent-teams/nami-agent-teams/team.json` (canh that) + `docs/provenance-tasks.json` (canh provenance).
-> Sinh luc: 2026-11-01T10:23:08.470Z · pha doi: **running** · 154 task / 15 member.
+> Sinh luc: 2026-11-01T11:29:13.461Z · pha doi: **running** · 158 task / 15 member.
 
 ## 1. Cach doc
 
@@ -25,6 +25,8 @@ flowchart LR
     t141["t141<br/>❌ failed<br/>audit-goat"]
     t144["t144<br/>✅ completed<br/>audit-goat"]
     t152["t152<br/>✅ completed<br/>audit-goat"]
+    t156["t156<br/>✅ completed<br/>dev-runtime-goat"]
+    t158["t158<br/>✅ completed<br/>audit-goat"]
   end
   subgraph W1["Song 1"]
     direction TB
@@ -39,6 +41,7 @@ flowchart LR
     t147["t147<br/>✅ completed<br/>kiem-thu-goat"]
     t153["t153<br/>✅ completed<br/>dev-runtime-goat"]
     t154["t154<br/>✅ completed<br/>kiem-thu-goat"]
+    t157["t157<br/>✅ completed<br/>dev-build-flash"]
   end
   subgraph W2["Song 2"]
     direction TB
@@ -47,6 +50,7 @@ flowchart LR
     t130["t130<br/>✅ completed<br/>dev-build-flash"]
     t142["t142<br/>✅ completed<br/>dev-ui-goat"]
     t148["t148<br/>✅ completed<br/>dev-ui-goat"]
+    t155["t155<br/>❌ failed<br/>dev-runtime-goat"]
   end
   subgraph W3["Song 3"]
     direction TB
@@ -465,6 +469,8 @@ flowchart LR
   t150 --> t151
   t152 --> t153
   t152 --> t154
+  t154 --> t155
+  t156 --> t157
   t3 -.->|rework| t14
   t4 -.->|follow-up| t15
   t4 -.->|rework| t16
@@ -630,6 +636,8 @@ flowchart LR
 | 0 | t141 | ❌ failed | audit-goat | — | — |
 | 0 | t144 | ✅ completed | audit-goat | — | — |
 | 0 | t152 | ✅ completed | audit-goat | — | — |
+| 0 | t156 | ✅ completed | dev-runtime-goat | — | — |
+| 0 | t158 | ✅ completed | audit-goat | — | — |
 | 1 | t2 | ✅ completed | nghien-cuu | t1 | — |
 | 1 | t5 | ✅ completed | kiem-thu | t1 | — |
 | 1 | t22 | ✅ completed | dev-tools-flash | t9 | — |
@@ -641,11 +649,13 @@ flowchart LR
 | 1 | t147 | ✅ completed | kiem-thu-goat | t144 | — |
 | 1 | t153 | ✅ completed | dev-runtime-goat | t152 | — |
 | 1 | t154 | ✅ completed | kiem-thu-goat | t152 | — |
+| 1 | t157 | ✅ completed | dev-build-flash | t156 | — |
 | 2 | t3 | ✅ completed | dev-runtime-flash | t2 | — |
 | 2 | t4 | ✅ completed | dev-tools-flash | t2 | — |
 | 2 | t130 | ✅ completed | dev-build-flash | t129 | t129 (pack) |
 | 2 | t142 | ✅ completed | dev-ui-goat | t139 | — |
 | 2 | t148 | ✅ completed | dev-ui-goat | t147 | — |
+| 2 | t155 | ❌ failed | dev-runtime-goat | t154 | — |
 | 3 | t6 | ✅ completed | audit-kimi | t3, t4 | — |
 | 3 | t10 | ✅ completed | dev-ui-goat | t4, t9 | t22 (rework) |
 | 3 | t14 | ✅ completed | dev-runtime-flash | — | t3 (rework) |

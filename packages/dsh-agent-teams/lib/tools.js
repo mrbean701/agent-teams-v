@@ -10,7 +10,7 @@ import { auditTeamWorkspace } from "./workspace-audit.js";
 import { readArtifactScope, snapshotWorkspacePaths, workspacePathExists } from "./artifacts.js";
 import { agentTeamsSource, observedSessionFormatVersion, restrictableToolNames } from "./harness-compat.js";
 import { memberSpawnRelaxableDeny, optionalToolPolicy, requireToolPolicy, resolveMemberToolFilter } from "./tool-policies.js";
-import { deliverToMember, installRetiredMemberGuard, installMemberSelectionRuntime, installMemberDelegationGuard, memberActivity, memberWelcome, resolveMemberLlmSelection, spawnMember, steerCaptainReport, validateMemberLlmSelections, } from "./members.js";
+import { activateMemberNow, deliverToMember, installRetiredMemberGuard, installMemberSelectionRuntime, installMemberDelegationGuard, memberActivity, memberWelcome, resolveMemberLlmSelection, spawnMember, steerCaptainReport, validateMemberLlmSelections, } from "./members.js";
 import * as membersApi from './members.js';
 import { TERMINAL_TASK_STATUSES } from "./types.js";
 import { collectCompletedDependencyOutputs, formatDependencyOutputs, installTeamScheduler } from "./scheduler.js";
@@ -1342,6 +1342,7 @@ export function registerAgentTeamsTools(ctx, config) {
             fallback_model: { type: 'string', description: 'Optional model id of the fallback route (used verbatim, including any "/" in the id). Requires fallback_provider.' },
             fallback_reasoning_effort: { type: 'string', description: 'Optional reasoning effort for the fallback route. Only meaningful together with fallback_provider and fallback_model.' },
             fallback_clear: { type: 'boolean', description: 'Set true to REMOVE the member fallback route and keep the primary route untouched. Cannot be combined with fallback_provider, fallback_model, or fallback_reasoning_effort.' },
+            start_if_needed: { type: 'boolean', description: 'Set true to START this member now when it owns a durable id but has no live session (the roster of a team restored from disk, where the id survived the Host restart but the session did not). Without the flag a route change on such a member is durable-only: it is saved and takes effect the next time the member starts, which the user reads as "no effect". With the flag the plugin starts the session on the route just set and answers with that session id. Refused, without starting anything, when the team is halted or still staged, when the member is stopping, or when it already has a live session (the route is applied to that session instead). Default false: the call behaves exactly as before.' },
         },
         output: {
             schema: {
@@ -1361,6 +1362,8 @@ export function registerAgentTeamsTools(ctx, config) {
                     fallback_cleared: { type: 'boolean' },
                     applied: { type: 'string', required: true },
                     child_id: { type: 'string' },
+                    started: { type: 'boolean' },
+                    start_refused: { type: 'string' },
                 },
             },
             render: (args, value) => [{
@@ -1380,7 +1383,14 @@ export function registerAgentTeamsTools(ctx, config) {
                         + (value.applied === 'live-and-durable'
                             ? ' — applied to the live session and saved; the step already in flight keeps its route and the session records a model-changed notice'
                             : ' — saved; it takes effect the next time this member starts')
-                        + (value.child_id === undefined ? '.' : ', session ' + value.child_id + '.'),
+                        + (value.child_id === undefined ? '.' : ', session ' + value.child_id + '.')
+                        // t155: only a call that asked to start carries these two, so a
+                        // plain route change keeps the sentence above unchanged.
+                        + (value.started === true
+                            ? ' It had a durable id but no live session, so the plugin started it now on this route.'
+                            : value.start_refused === undefined
+                                ? ''
+                                : ' It was NOT started: ' + value.start_refused + '.'),
                 }],
         },
         async execute(args, exec) {
@@ -1434,6 +1444,21 @@ export function registerAgentTeamsTools(ctx, config) {
                 by: captain.session.id,
                 source: 'captain',
             }, exec.signal);
+            // t155 (opt-in start-on-demand): a member row restored from disk keeps its
+            // durable id while no session is running, so setMemberRoute can only write
+            // the override (applied === 'durable-only') and the operator sees a model
+            // change with no effect. With start_if_needed the plugin starts that member
+            // now — through the SAME runtime path add_member uses (activateMemberNow), so
+            // routeOf precedence fallback > override > active > declared still decides
+            // the route — and answers with the new session id. Default false: nothing
+            // below runs and the answer is byte-identical to before.
+            let launched;
+            if (args.start_if_needed === true && changed.cleared !== true) {
+                launched = await runtime.startMemberOnDemand(captain, {
+                    teamId: team.id,
+                    memberName: changed.member_name,
+                }, exec.signal);
+            }
             const previous = changed.previous;
             return {
                 member_name: changed.member_name,
@@ -1448,8 +1473,10 @@ export function registerAgentTeamsTools(ctx, config) {
                     ...changed.fallback.reasoning_effort === undefined ? {} : { fallback_reasoning_effort: changed.fallback.reasoning_effort },
                 },
                 ...changed.fallback_cleared === true ? { fallback_cleared: true } : {},
-                applied: changed.applied,
-                ...changed.child_id === undefined ? {} : { child_id: changed.child_id },
+                applied: launched?.started === true ? 'live-and-durable' : changed.applied,
+                ...(launched?.childId ?? changed.child_id) === undefined ? {} : { child_id: launched?.childId ?? changed.child_id },
+                ...launched === undefined ? {} : { started: launched.started },
+                ...launched?.reason === undefined ? {} : { start_refused: launched.reason },
             };
         },
     }));
@@ -2800,6 +2827,8 @@ export function registerAgentTeamsTools(ctx, config) {
         // the one live registry, so no second one is created here.
         setMemberRoute: (captain, request, signal) => setMemberRoute(ctx, config, memberSelections, captain, request, signal),
         addMember: (captain, request, signal) => addMemberNow(ctx, config, memberSelections, captain, request, signal, kickMember),
+        // t155: opt-in start of a member whose durable id outlived its session.
+        startMemberOnDemand: (captain, request, signal) => startMemberOnDemandNow(ctx, config, memberSelections, captain, request, signal),
         currentMemberRoute: (member) => currentMemberRoute(memberSelections, member),
         // Profile control plane (role / execution prompt): a captain edit that is
         // durable first and never interrupts the member it names.
@@ -3262,6 +3291,77 @@ async function setMemberProfileNow(ctx, config, captain, request, signal) {
  * @param member - the member row as stored.
  * @returns the next route, or undefined when the member has no route at all.
  */
+/**
+ * Start ONE member that already owns a durable id but has no live session — the
+ * roster of a team restored from disk, where the id survived the Host restart and
+ * the session did not. Opt-in only: `agent_teams_set_member_route` reaches this
+ * through `runtime.startMemberOnDemand` when its `start_if_needed` flag is true.
+ *
+ * Why it exists (t154/t155): `dispatchMember` refuses to spawn a row with a
+ * non-empty id (`if (member.id !== '') return deliverToMember(...)`, tools.js:544),
+ * which is right for a RUNNING member and wrong for a dormant one — a route change
+ * then lands as `durable-only` and the operator sees 'the model did not change'.
+ *
+ * Order of operations:
+ * 1. every guard is checked INSIDE the team lock, on a freshly read team, so a
+ *    halt/stage/stopping that landed a moment ago is honoured;
+ * 2. a member that really is live is not spawned twice — the answer says so and
+ *    names the session the route was applied to;
+ * 3. the stale id is dropped IN RAM only, so `activateMemberNow` treats the row as
+ *    unstarted and performs the start through the one shared spawn path (routeOf
+ *    precedence fallback > override > active > declared, then spawnMember's
+ *    escalation of that override into provider/model);
+ * 4. the team is written once, at the end, by THIS caller — activateMemberNow
+ *    mutates the row and never writes (the contract add_member relies on too).
+ * Two concurrent calls cannot both spawn: the lock serialises them and the second
+ * one re-reads a team whose row now carries the new child id, which is live.
+ *
+ * @returns the start outcome; a refusal never throws, because the route change
+ *          already succeeded and the caller must still be told about it.
+ */
+async function startMemberOnDemandNow(ctx, config, memberSelections, captain, request, signal) {
+    const root = stateRootOf(workspaceOf(captain), config);
+    // The spawn path resolves the child's route through the durable row; the same
+    // knobs dispatchMember hands to spawnMember keep behaviour identical.
+    const memberConfig = memberRuntime(config);
+    return await withTeamLock(teamLockKey(root, request.teamId), async () => {
+        const team = await readTeam(root, request.teamId);
+        if (team === undefined)
+            return { started: false, reason: `team "${request.teamId}" was not found` };
+        if (!(await sessionLeadsTeamAsync(ctx, team, captain.id)))
+            return { started: false, reason: `only the captain of team "${team.id}" can start a member` };
+        const member = team.members.find(item => item.name === request.memberName && item.status !== 'removed');
+        if (member === undefined)
+            return { started: false, reason: `member "${request.memberName}" is not part of team "${team.id}"` };
+        if (team.halted === true)
+            return { started: false, reason: `team "${team.id}" is halted; resume it before starting a member` };
+        if ((team.phase ?? 'running') === 'staged')
+            return { started: false, reason: `team "${team.id}" is still staged; members start only after approval` };
+        if (member.stopping === true)
+            return { started: false, reason: `member "${member.name}" is stopping` };
+        // Two independent witnesses of 'this id is live': the member-selection registry that
+        // spawnMember fills, and the host agent registry, which is what survives a child whose
+        // selection bridge was installed by another path. Either one is enough to refuse.
+        const memberIsLive = member.id !== '' && (memberSelections.liveChildIds().includes(member.id) || ctx.agents.get(member.id) !== undefined);
+        if (memberIsLive) {
+            return { started: false, childId: member.id, reason: `member "${member.name}" already has a live session (${member.id}), so the route was applied to it instead of starting a second one` };
+        }
+        // The id is stale: no session in THIS process answers to it. Dropping it in RAM
+        // is what lets the shared start path run; the durable write below replaces it.
+        if (member.id !== '')
+            member.id = '';
+        try {
+            const childId = await activateMemberNow(ctx, memberConfig, memberSelections, captain, team, member, member.toolFilter, undefined, signal);
+            await writeTeam(root, team);
+            return { started: true, childId };
+        }
+        catch (error) {
+            // The row never reaches disk with a half-start: activateMemberNow mutates
+            // only in RAM, so a throw leaves the durable record exactly as it was.
+            return { started: false, reason: `could not start member "${member.name}": ${String(error && error.message ? error.message : error)}` };
+        }
+    });
+}
 function currentMemberRoute(memberSelections, member) {
     const liveRoute = membersFunction('currentMemberRoute');
     if (liveRoute !== undefined) {

@@ -860,3 +860,10 @@ Các vòng trước đột biến SẢN PHẨM rồi xem cổng có đỏ. Lư�
 2. **`contain:size` là cách đúng để 'cột này không quyết định chiều cao hàng'**: nó khiến card phải chỉ nhận chiều cao từ hàng grid (`align-self:stretch`), nên form mở/đóng là tự co giãn; đánh đổi đã đo: khi cột trái chỉ 1 hàng thì card phải cao tối thiểu = padding+border (38 px) ⇒ lệch +16 px nhưng **vẫn cuộn nội bộ được** nên không mất nội dung.
 3. **Parity hai bản sao KHÔNG đủ**: audit vòng 25 chứng minh thêm `overflow:hidden` vào CẢ hai bản thì parity vẫn xanh (hai bản đồng ý với nhau!) trong khi DAG bị cắt ⇒ phải có phép kiểm NGỮ NGHĨA riêng cho hành vi (cấm clip) chứ không chỉ so hai bản.
 4. **Cổng phải so theo TÊN THUỘC TÍNH, không chỉ đếm problem**: t153 assert `problem.includes('> align-self ')` cho từng ca, nên một ca đỏ vì lý do khác không thể 'đỡ' cho ca đang hỏng.
+
+## Vòng 26 — bài học (khoá, mặc định, và cái giá của 'chỉ cần đúng khi chạy đua')
+
+1. **Cổng chỉ chứng minh điều mình đo**: t155 có ca 'hai lời gọi song song ⇒ 1 phiên' nhưng khi audit BỎ `withTeamLock` thì ca đó vẫn xanh — vì hai lời gọi tuần tự trong test không tạo cửa sổ đua thật. Muốn canh khoá phải có **đầu dò chèn độ trễ trong vùng tới hạn** (audit làm: 40 ms sau `readTeam` ⇒ 11/11; bỏ khoá ⇒ 10/11). Đây là V26-F1 và là việc còn nợ.
+2. **Mặc định phải được canh bằng assert dương**: `start_if_needed` mặc định `false` được bảo vệ bởi 4 assert của t155 (schema optional, `/Default false/`, `starts.length 0`, câu trả lời cũ nguyên văn) — audit đổi default→`true` thì t155 đỏ 9/11. Tức hành vi 'không cờ thì không spawn' không phải lời khai.
+3. **Escalate override rồi xoá là chủ ý, nhưng có giá**: `members.js:1070-1076` ghi `provider/model` TRƯỚC khi xoá `routeOverride` nên cold-resume không mất route (audit xác nhận), đổi lại dòng `working` mất provenance `source:'erp'` (V26-F3). Khi tài liệu hoá phải nói cả hai vế.
+4. **Timeout của suite LIVE là dấu 'chưa kết luận', không phải hồi quy**: `t154` timeout 120 s sau khi boot xong 7,9 s (V26-F4). Ghi là finding low và theo dõi, không được vội kết luận sản phẩm hỏng.

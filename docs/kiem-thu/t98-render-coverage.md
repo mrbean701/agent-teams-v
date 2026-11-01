@@ -74,11 +74,11 @@ fields=110 reached=92 uncovered=9 nested_gaps=4 allow_listed=5. Số đo đầy 
 | agent_teams_create.profile | lib/tools.js:889 | medium | không biết profile/protocol đã áp |
 | agent_teams_create.task_planning | lib/tools.js:889 | medium | không biết chế độ lập kế hoạch |
 | agent_teams_edit_plan.team_id | lib/tools.js:1142 | low | **chuyển sang ALLOW_LIST** (t94 khoá nguyên văn text này) |
-| agent_teams_set_member_profile.execution_prompt | lib/tools.js:1479 | high | không đọc lại được prompt vừa đặt (chỉ thấy "changed") — **t99 in** |
-| agent_teams_set_member_profile.previous_role | lib/tools.js:1479 | medium | không thấy giá trị cũ để hoàn tác — **t99 in** |
-| agent_teams_set_member_profile.previous_execution_prompt | lib/tools.js:1479 | medium | không thấy prompt cũ để hoàn tác — **t99 in** |
-| agent_teams_status.team_id | lib/tools.js:2431 | low | thiếu id khi tên đội trùng — **t99 in** |
-| agent_teams_status.phase | lib/tools.js:2431 | medium | không phân biệt staged/running từ status — **t99 in** |
+| agent_teams_set_member_profile.execution_prompt | lib/tools.js:1506 | high | không đọc lại được prompt vừa đặt (chỉ thấy "changed") — **t99 in** |
+| agent_teams_set_member_profile.previous_role | lib/tools.js:1506 | medium | không thấy giá trị cũ để hoàn tác — **t99 in** |
+| agent_teams_set_member_profile.previous_execution_prompt | lib/tools.js:1506 | medium | không thấy prompt cũ để hoàn tác — **t99 in** |
+| agent_teams_status.team_id | lib/tools.js:2493 | low | thiếu id khi tên đội trùng — **t99 in** |
+| agent_teams_status.phase | lib/tools.js:2493 | medium | không phân biệt staged/running từ status — **t99 in** |
 
 Thiếu **lồng** (in ra để báo cáo, không phải điều kiện đỏ): `status.members[].last_failure.*`,
 `.fallback.*`, `.route_override.*` (chỉ hiện dấu ` (override)` chứ không hiện route nào), `.active_provider/.active_model`,
@@ -92,11 +92,11 @@ Ba trường `agent_teams_create.*` ở trên cũng đã được t99 in (profil
 |--------|--------|-------|
 | create.captain_session_id | lib/tools.js:889-901 | người đọc CHÍNH là session đó; id được phát lại qua presentationMeta (:899-911) |
 | approve.status | lib/tools.js:1254-1258 | DTO chỉ có một giá trị "running"; câu "approved and running" đã nói đúng điều đó |
-| set_member_profile.applied | lib/tools.js:1479-1490 | lần gọi này luôn durable-only (lib/members.js:1660); text đã nói "saved; takes effect next start" |
-| update_task.attempt_id | lib/tools.js:2071-2074 | caller vừa truyền attempt_id; claim_task/reassign_task mới là chỗ phải in lại (:1887, :1752) |
+| set_member_profile.applied | lib/tools.js:1506-1515 | lần gọi này luôn durable-only (lib/members.js:1660); text đã nói "saved; takes effect next start" |
+| update_task.attempt_id | lib/tools.js:2098-2101 | caller vừa truyền attempt_id; claim_task/reassign_task mới là chỗ phải in lại (:1887, :1752) |
 | edit_plan.team_id | lib/tools.js:1142-1152 | công cụ chỉ sửa được đội của chính người gọi nên id trùng danh tính đã biết; `tests/t94-edit-plan-roster-render.mjs:259` khoá nguyên văn text (thêm dòng `team_id` làm đỏ 3 case của t94 — suite ngoài phạm vi t99) |
-| delete.deleted | lib/tools.js:2748-2751 | DTO chỉ trả true; câu "ended and archived" đã nêu kết cục, cờ không phân biệt gì |
-| status.removed_count | lib/tools.js:2466-3329 | **dẫn xuất**: DTO đặt `removed_count = removedMembers.length` (lib/tools.js:2660) và tiêu đề roster in CHÍNH số đó từ cùng mảng (lib/tools.js:3328-3329) ⇒ hai khoá không thể lệch nhau, không witness nào phân biệt nổi; in thêm là in cùng một số hai lần (t117) |
+| delete.deleted | lib/tools.js:2775-2778 | DTO chỉ trả true; câu "ended and archived" đã nêu kết cục, cờ không phân biệt gì |
+| status.removed_count | lib/tools.js:2493-3428 | **dẫn xuất**: DTO đặt `removed_count = removedMembers.length` (lib/tools.js:2687) và tiêu đề roster in CHÍNH số đó từ cùng mảng (lib/tools.js:3428) ⇒ hai khoá không thể lệch nhau, không witness nào phân biệt nổi; in thêm là in cùng một số hai lần (t117) |
 
 ## Đối chứng âm (chứng minh cổng không xanh im lặng)
 
@@ -344,3 +344,29 @@ lấy từ roster sống); một dạng lệch khác — ví dụ tiêu đề ro
 của `rosterInvariantProblems` canh, nhưng không có đối chứng âm riêng; (b) fixture F4 là 2 đường dẫn TỔNG HỢP đưa vào
 đúng hàm dựng thông điệp, chưa phải một baseline đỏ thật (muốn thế phải cố ý làm hỏng `lib/`); (c) `removed_members`
 lồng sâu hơn 1 cấp vẫn ngoài tầm hợp đồng hai chiều của t110.
+## t156 — đo lại toàn bộ dòng sau khi t155 đổi `lib/tools.js`
+
+`t155` thêm tham số `start_if_needed`, hook sau `setMemberRoute`, hàm `startMemberOnDemandNow()` và nhánh
+câu trả lời mới, nên **12 dòng render bị dời** và ba citation trong `ALLOW_LIST` không còn trùm dòng render
+của chính nó. Cả hai đều bị cổng tự phát hiện (`GATE ERROR: stale RENDER_LINES map`, rồi
+`GATE ERROR: ALLOW_LIST citation does not point at the render it excuses`) — đúng thiết kế: map cũ thì
+cổng không chấm gì thay vì chấm sai.
+
+Số ĐO LẠI bằng máy (`grep` dòng `name: 'agent_teams_*'` rồi tìm dòng `render:` kế tiếp), không chép tay:
+
+| tool | cũ | mới | | tool | cũ | mới |
+|---|---|---|---|---|---|---|
+| create | 889 | 889 (không đổi) | | claim_task | 1901 | 1928 |
+| edit_plan | 1142 | 1142 (không đổi) | | update_task | 2071 | 2098 |
+| approve | 1254 | 1254 (không đổi) | | amend_task | 2240 | 2267 |
+| add_member | 1303 | 1303 (không đổi) | | send_message | 2317 | 2344 |
+| set_member_route | 1366 | 1369 | | status | 2466 | 2493 |
+| set_member_profile | 1479 | 1506 | | resume | 2698 | 2725 |
+| remove_member | 1542 | 1569 | | delete | 2748 | 2775 |
+| create_task | 1630 | 1657 | | reassign_task | 1766 | 1793 |
+
+Citation `ALLOW_LIST` đo lại theo dòng render mới: `set_member_profile.applied` `:1479-1490` →
+`:1506-1515`, `update_task.attempt_id` `:2071-2074` → `:2098-2101`, `delete.deleted` `:2748-2751` →
+`:2775-2778`, và `status.removed_count` `:2466-3329` → `:2493-3428` (range phải TRÙM dòng render của chính
+nó; con số dẫn xuất `removed_count = removedMembers.length` nay ở `:2687`, tiêu đề roster in số đó ở `:3428`).
+Bảng 16 dòng ở trên đã cập nhật theo cùng số đo. Các mục t117 phía trên là BẢN GHI lịch sử, giữ nguyên.

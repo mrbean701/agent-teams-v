@@ -217,6 +217,23 @@ agent-teams: route change for member "alice" refused: source "erp" is not one th
 Bản mới **không tự thêm** `routeOverride` khi chỉ đọc dữ liệu ERP (0/14 member có `routeOverride`;
 `routeOf` trả `origin: "declared"`) — số đo: `docs/kiem-thu/tuong-thich-erp.md` mục 0 (C7).
 
+### 3.4 Giới hạn quan trọng: hồ sơ ERP có `id` bền thì đổi route chỉ là *durable-only*
+
+Đội ERP có **14 hồ sơ member đã có `id`** (trường `id` trong `team.json`). Với các hồ sơ này plugin **không spawn phiên mới**: mọi tin nhắn đi qua mailbox, và `agent_teams_set_member_route` chỉ ghi `routeOverride` để **áp dụng ở lần start kế tiếp** — công cụ trả nguyên văn `… saved; it takes effect the next time this member starts`.
+
+Nguyên nhân trong mã (đoạn quyết định): `packages/dsh-agent-teams/lib/tools.js:544-545`
+```js
+if (member.id !== '')
+    return deliverToMember(ctx, captain, member.id, text, signal, mode);
+```
+Tức: **có `id` bền ⇒ không spawn lại**, chỉ giao qua mailbox.
+
+**Hệ quả bạn cần biết trước khi bấm:**
+- Nếu member đó **đang có phiên sống** (do chính phiên captain hiện tại spawn), đổi route **áp dụng NGAY** cho phiên đó — bằng chứng t154: `Member "kiem-thu-t154" route is now … applied to the live session and saved`.
+- Nếu member chỉ tồn tại trong `team.json` (không có phiên sống), đổi route là **durable-only**: `status` vẫn có thể hiển thị `working` (trạng thái trong tệp) nhưng **không có gì đang chạy**; hiệu lực chỉ tới khi member đó được start.
+- Vì vậy, muốn 'đổi model cho thành viên ERP có hiệu lực tức thì', cần cơ chế **start-on-demand** (spawn phiên cho hồ sơ đã có `id`). Cơ chế này **chưa có** trong bản vòng 25 — đang được đánh giá ở card `t155` (đề xuất làm dạng **opt-in**, mặc định giữ nguyên hành vi hiện tại để không tự spawn ngoài ý muốn).
+
+**Cách kiểm nhanh trên dữ liệu thật** (bản copy, không đụng tệp gốc): xem mục 5 của `docs/kiem-thu/t154-released-erp.md` — ở đó có nguyên văn cả lần thử nhắm `qa-do-2` trả `delivered via mailbox` và `status` giữ `idle/ready`.
 ## 4. Xử lý sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân (đo được) | Cách xử |

@@ -120,6 +120,24 @@ export interface MemberRouteChangeInput {
     source?: 'captain' | 'http' | 'profile';
     /** Optional actor label recorded with the change. */
     by?: string;
+    /**
+     * t155 opt-in: start the member now when it owns a durable id but no live
+     * session, instead of only saving the route. Omitted/false keeps the original
+     * durable-only behaviour.
+     */
+    startIfNeeded?: boolean;
+}
+/**
+ * Outcome of the opt-in start that `startIfNeeded` asks for. A refusal is not an
+ * error — the route change already succeeded, so the caller learns why nothing
+ * was started instead of losing the change.
+ */
+export interface MemberStartOnDemandResult {
+    readonly started: boolean;
+    /** The session that now runs the member: new when started, existing when already live. */
+    readonly childId?: string;
+    /** Present when nothing was started, phrased for the operator. */
+    readonly reason?: string;
 }
 /** Runtime bridge shared by model-facing tools and the Web staging surface. */
 export interface AgentTeamsRuntime {
@@ -142,6 +160,16 @@ export interface AgentTeamsRuntime {
     addMember(captain: Agent, request: MemberAddRequest, signal?: AbortSignal): Promise<MemberAddResult>;
     /** Change one member's route durably, and live when this process owns the child. */
     setMemberRoute(captain: Agent, request: MemberRouteChangeInput, signal?: AbortSignal): Promise<import('./members.ts').MemberRouteChangeResult>;
+    /**
+     * t155: start a member that has a durable id but no live session, on the route
+     * its durable row now resolves to (routeOf precedence, then the spawn
+     * escalation). Refuses, without spawning, on halted/staged teams, a stopping
+     * member, or a member that is already live.
+     */
+    startMemberOnDemand(captain: Agent, request: {
+        teamId: string;
+        memberName: string;
+    }, signal?: AbortSignal): Promise<MemberStartOnDemandResult>;
     /** The route a member would use next, read from the live registry. */
     currentMemberRoute(member: TeamMember): import('./members.ts').MemberCurrentRoute | undefined;
 }
