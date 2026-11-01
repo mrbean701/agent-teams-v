@@ -70,6 +70,28 @@ Lệnh cài tham chiếu này lấy từ báo cáo §2.3 (đường dẫn phát 
 Sau khi cài, mở app DeepSeek Harness và bấm **Ctrl+R** để nạp lại giao diện — không cần
 khởi động lại cứng (báo cáo §2.3; `docs/bao-cao-telegram/ky-46.md:16`).
 
+### 1.1 Cài từ GitHub Releases (kênh phân phối chính thức — KHÔNG cần npm)
+
+Gói **không publish lên npm registry** (quyết định của chủ dự án, 2026-11-01). Bản phát hành nằm ở GitHub Releases và tải trực tiếp bằng URL:
+
+```bash
+# URL phát hành (prerelease vòng 26)
+https://github.com/mrbean701/agent-teams-v/releases/download/vong-26/nami-dsh-agent-teams-0.2.0-dev.0.tgz
+
+# cài thẳng từ URL vào một profile DSH
+cd C:/Users/<ban>/.dsh/profiles/<profile>
+npm i --offline --legacy-peer-deps https://github.com/mrbean701/agent-teams-v/releases/download/vong-26/nami-dsh-agent-teams-0.2.0-dev.0.tgz
+```
+
+Trước khi cài, kiểm byte (bắt buộc — tarball nào cũng cùng tên, chỉ khác nội dung):
+
+```bash
+# sha256 phải là: 8ef366ede347eff4aa128d5216fe0600636fd89ba5a5ea011fe2c0abee6e3728
+node -e "const c=require('node:crypto'),f=require('node:fs');console.log(c.createHash('sha256').update(f.readFileSync('<tep>.tgz')).digest('hex'))"
+# kỳ vọng: 8ef366ede347eff4aa128d5216fe0600636fd89ba5a5ea011fe2c0abee6e3728  (2 250 654 B, 133 entry)
+```
+
+Hoặc cài từ bản local trong repo: `dist/vong-26/nami-dsh-agent-teams-0.2.0-dev.0.tgz` (byte y hệt bản trên release).
 ## 2. Mở panel và đọc panel ba khối
 
 Panel AgentTeams là panel phụ của app (nút **Activity panel**, chuỗi `activity.panelButton` trong

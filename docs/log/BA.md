@@ -239,3 +239,10 @@ Vì `lib/client.js.map` đổi ⇒ bộ byte phát hành đổi ⇒ phải pack 
 - **Vì sao opt-in chứ không mặc định bật**: tự spawn phiên là hành vi có chi phí (tiền, phiên sống) và có thể bất ngờ; cờ `start_if_needed` buộc người gọi nói rõ ý định, còn `agent_teams_add_member` giữ nguyên đường cũ.
 - **Cái giá đã chấp nhận**: sau lần start đầu, dòng `working` trong `team.json` mất provenance `source:'erp'` (override bị escalate vào `provider/model`) — đã ghi trong tài liệu và finding V26-F3.
 - **Nợ kỹ thuật còn lại**: V26-F1 — cần ca đua có cửa sổ thật (đầu dò trễ) + đối chứng âm bỏ khoá để cổng canh được `withTeamLock`.
+
+## Vòng 26 (phần 3) — chốt kênh phân phối: GitHub Releases, KHÔNG npm
+
+- Bối cảnh: sau audit vòng 26, gói đã có verdict PASS + đã cài vào profile `desktop`, nhưng chưa có kênh phân phối công khai. Hai đường khả dĩ: npm registry (cần `npm login`/token) và GitHub Releases (dùng credential git sẵn có).
+- Người dùng hỏi `npm login` để làm gì ⇒ giải thích: chỉ để lấy credential cho `registry.npmjs.org`, phục vụ đúng một việc là đẩy gói lên npm cho `npm i @nami/dsh-agent-teams`; không ảnh hưởng bản đang chạy trong app, không cần cho GitHub Release.
+- Quyết định của người dùng: **bỏ npm**, dùng GitHub Release. Hệ quả: (a) không cần credential npm nào trên máy; (b) `docs/huong-dan/dung-voi-erp.md` thêm §1.1 hướng dẫn cài từ URL release + kiểm sha256/bytes/entries; (c) kênh phát hành chính thức = GitHub Releases, mỗi vòng phát hành = một release tag `vong-N` + asset `.tgz`.
+- Bài học: publish npm KHÔNG phải điều kiện của 'phát hành được' — verdict audit nói về byte, còn kênh phân phối là quyết định của chủ dự án; đừng để thiếu credential chặn việc công bố (release + tarball đã đủ và kiểm chứng được bằng sha).
