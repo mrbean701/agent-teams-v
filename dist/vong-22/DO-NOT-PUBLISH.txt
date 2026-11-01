@@ -1,0 +1,3 @@
+Bộ byte này (b65f60fd28b4a6ed.../2248542 B) đã bị audit t141 bác bằng finding V22-F0 (high):
+bố cục panel 1:1 bóp cả hai cột; người dùng bác bằng ảnh chụp panel thật.
+Thay thế bằng vòng 23 (t142 -> pack vòng 23 -> audit vòng 23).

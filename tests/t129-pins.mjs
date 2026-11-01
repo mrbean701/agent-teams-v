@@ -137,10 +137,13 @@ check('t10 pin and the FROZEN lib/client.js row carry the same sha256 + bytes',
 
 // ---------------------------------------------------------------- panel order in the bundle
 const bundleSource = fs.readFileSync(path.join(pkgDir, 'lib', 'client.js'), 'utf8');
+// t139 replaced the t128 single column with two columns: the member column (AddMemberControl
+// then the member list) comes FIRST, the DependencyMap column AFTER it. The negative control
+// below uses the rejected t128 order, so this table still has teeth.
 const PANEL_ORDER = [
-    ['DependencyMap above the member list', 'DependencyMap, { tasks'],
     ['AddMemberControl above the member list', 'AddMemberControl, { team'],
     ['the member list (orderDelegationMembers call)', 'orderDelegationMembers(team.members, team.tasks)'],
+    ['DependencyMap in the right-hand column', 'DependencyMap, { tasks'],
 ];
 function orderProblems(text) {
     const problems = [];
@@ -159,14 +162,14 @@ function orderProblems(text) {
     return problems;
 }
 const realOrderProblems = orderProblems(bundleSource);
-check('panel order in the shipped bundle: DependencyMap < AddMemberControl < member list',
+check('panel order in the shipped bundle (t139): AddMemberControl < member list < DependencyMap',
     realOrderProblems.length === 0,
     realOrderProblems.length === 0
         ? PANEL_ORDER.map((entry) => entry[1] + '@' + bundleSource.indexOf(entry[1])).join(' < ')
         : realOrderProblems.join('; '));
-const oldOrder = [PANEL_ORDER[1][1], PANEL_ORDER[2][1], PANEL_ORDER[0][1]].join('\n');
+const oldOrder = [PANEL_ORDER[2][1], PANEL_ORDER[0][1], PANEL_ORDER[1][1]].join('\n');
 const oldOrderProblems = orderProblems(oldOrder);
-check('the pre-t128 order fails the same order check',
+check('the rejected t128 order fails the same order check',
     oldOrderProblems.length > 0 && oldOrderProblems.every((problem) => problem.includes('must precede')),
     'applies: ' + oldOrderProblems.length + ' problem(s): ' + oldOrderProblems.join('; '));
 

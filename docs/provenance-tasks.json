@@ -902,6 +902,12 @@
       "to": "t138",
       "kind": "follow-up",
       "why": "phep thu cai desktop (m07292) chay LIVE t18: verdict FAIL 6/9 nhung artifact chung minh san pham dung — bo kiem doc team.json da archive + member id lay sau khi chay + khong tim thay transcript"
+    },
+    {
+      "from": "t128",
+      "to": "t139",
+      "kind": "repair",
+      "why": "bo cuc t128 sai: nguoi dung yeu cau HAI COT (trai = list member + add-member tren cung, phai = task dependencies); DAG khong gioi han chieu cao day member ra khoi man hinh"
     }
   ],
   "superseded": {

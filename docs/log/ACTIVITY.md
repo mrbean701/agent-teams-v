@@ -511,3 +511,37 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | Đổi route `qa-do-2` | audit `durable-only`, `routeOverride` bền vào `team.json`, ERP gốc không đổi (`9f7420b6a1af1f4e…` / 1 533 117 B) |
 | `node tests/t18-hot-switch-e2e.mjs` | verdict FAIL 6/9 — chấm lại bằng tay: sản phẩm ĐÚNG, sáu ca trượt vì team bị archive |
 | Transcript member `cdca2907-44ef-…` | 42 frame, 83 event, 13 step; notice seq 19; header seq 11 `kimi-k2.7-code` → seq 20 `deepseek-v4.1-flash` (high) |
+
+## Vòng 21 (phần 3b) — captain chấm t138 (bộ kiểm t18)
+
+| Phép đo | Kết quả |
+| --- | --- |
+| `tests/t18-hot-switch-e2e.mjs` | `dcdc6c849dfcb828…` / 38 124 B / 668 dòng |
+| `docs/kiem-thu/t18-hot-switch.md` | `f57b3bf5a5a84984…` / 7 246 B / 105 dòng |
+| `--analyze tests/tmp/e2e-hotswitch/2026-11-01T05-56-13` | EXIT 0 · PASS C1..C9 · `proved C1,C2,…,C9; unproved none` |
+| artifact GỐC sau analyze | `result.json` vẫn `verdict=FAIL` ⇒ analyze KHÔNG tự chữa |
+| `--negative <artifact>` | EXIT 0 · N1..N4 PASS (mỗi ca đỏ đúng tập ca mong đợi, `evidence_missed=none`) |
+| LIVE lại (member) `tests/tmp/e2e-hotswitch/2026-11-01T06-14-27` | verdict PASS 9/9, mtime 06:17:13Z, transcript 49 frame, `attemptId appears in member transcript=true` |
+| `tests/t115-check-contract.mjs` | 43/43 EXIT 0 |
+
+## Vòng 22 — bảng đo captain (t139 + t140)
+
+| Phép đo | Kết quả |
+| --- | --- |
+| sha+bytes 9 tệp t139 (captain đo) | khớp 9/9 lời khai; bundle `d91354cb…`/259 417 · map `b1693659…`/406 099 · CSS `9eee05f2…`/52 290 |
+| suite sau t139 | t128 24/24 · t10 50/50 · t129 13/13 · t114 16/16 · t113 38/38 · t98 `--strict` GREEN |
+| mutation M1 hoán nhãn cột (0 B) + M2 xoá cap CSS (−16 B) | t128 18/24 (FAIL C2, C3, B3, X2 + 2 ca thứ tự); phục hồi `identical` cả hai tệp |
+| tarball t140 | `b65f60fd28b4a6ed…`/2 248 542 B/133 entry/0 entry thư mục |
+| `t140-pack.mjs --analyze` | EXIT 0, A1..A20 PASS; tarball KHÔNG đổi sha sau khi chấm |
+| bảng FROZEN 13 dòng tại thời điểm chấm | drift 0/13 |
+| thứ tự cột trong bundle giải nén từ tarball (byte) | grid@176 449 < member@176 577 < dependency@182 917, cách 6 340 B |
+
+## Vòng 23 — bảng đo captain (t142)
+
+| Phép đo | Kết quả |
+| --- | --- |
+| sha+bytes 10 tệp t142 | khớp 10/10; `client.js` `7dca20dd…`/258 790 · `map` `173b684f…`/405 349 · CSS `7ea5190c…`/52 045 |
+| dòng CSS quyết định bố cục | `minmax(280px,1fr) minmax(0,2fr)` trong `@container (width>=800px)` |
+| `.eDfHrq_content` | `max-width:none` (trước là `1400px`) |
+| suite captain tự chạy | t128 22/22 · t10 50/50 · t129 13/13 · t114 16/16 · t113 38/38 · t98 `--strict` GREEN |
+| mutation `2fr`→`1fr` (−1 B) | t128 18/22 EXIT 1, FAIL C1+C2+B3+X2; phục hồi `identical` |

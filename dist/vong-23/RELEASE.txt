@@ -1,0 +1,4 @@
+Bo byte vong 23 (pack t143): panel ba khoi, dependencies la cot phai 1:2.
+sha256 62ad22758a405a9ad1c9e380b91a2ea5aef830e0a66a9a0bad2fde74f6c1d308 / 2248300 B / 133 entry
+Captain da do lai: analyze 29 PASS / 0 FAIL; byte trong bundle ban cai: minmax 1:2 x1, data-panel-columns x0, DependencyMap sibling.
+Audit doc lap: t144 (dang chay).

@@ -21,7 +21,7 @@
  * Self-locating: the profile, the CLI and the plugin are resolved from the
  * environment/defaults of tools/test/lib/dsh-cli.mjs, never hard-coded paths.
  */
-import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -41,7 +41,29 @@ const INITIAL = { provider: 'opencode-go', model: 'kimi-k2.7-code' };
 const TARGET = { provider: 'opencode-go', model: 'deepseek-v4.1-flash', effort: 'high' };
 
 const argv = process.argv.slice(2);
-const analyzeOnly = argv[0] === '--analyze' ? resolve(argv[1] ?? '') : undefined;
+// Fail closed on argument abuse: an unknown or valueless flag must never fall through to the
+// LIVE flow (that would spend boots and overwrite artifacts the caller did not ask for).
+const unknownFlags = argv.filter((token) => token.startsWith('--') && token !== '--analyze' && token !== '--negative');
+if (unknownFlags.length > 0) {
+    console.log('FAIL usage — co khong ho tro: ' + unknownFlags.join(' '));
+    process.exit(2);
+}
+const flagValue = (name) => {
+    const index = argv.indexOf(name);
+    if (index === -1) return undefined;
+    const value = argv[index + 1];
+    if (value === undefined || value.startsWith('--')) {
+        console.log('FAIL usage — ' + name + ' can mot duong dan');
+        process.exit(2);
+    }
+    return resolve(value);
+};
+const analyzeOnly = flagValue('--analyze');
+const negativeTarget = flagValue('--negative');
+if (analyzeOnly !== undefined && negativeTarget !== undefined) {
+    console.log('FAIL usage — chi dung mot trong --analyze hoac --negative');
+    process.exit(2);
+}
 
 // ---------------------------------------------------------------- utilities
 function psQuote(value) {
@@ -108,23 +130,51 @@ function routeLabel(route) {
 
 async function readTeamFile(workspace) {
     const stateRoot = join(workspace, '.agent-teams');
-    if (await exists(stateRoot) === false) return { team: undefined, path: undefined, files: [] };
-    const dirs = await readdir(stateRoot);
-    const files = [];
-    for (const dir of dirs) {
-        const candidate = join(stateRoot, dir, 'team.json');
-        if (await exists(candidate)) files.push(candidate);
+    if (await exists(stateRoot) === false) {
+        return { team: undefined, path: undefined, files: [], source: 'none' };
     }
-    for (const path of files) {
-        const text = await readFile(path, 'utf8');
+    const scan = async (dir, source) => {
+        const found = [];
+        if (await exists(dir) === false) return found;
+        for (const entry of await readdir(dir)) {
+            const candidate = join(dir, entry, 'team.json');
+            if (await exists(candidate)) found.push({ path: candidate, source });
+        }
+        return found;
+    };
+    // LIVE first, then the ARCHIVE copy: the captain may end and archive the team before
+    // this analysis runs (agent_teams_delete), which removes .agent-teams/<team>/team.json.
+    const candidates = [...await scan(stateRoot, 'live'), ...await scan(join(stateRoot, 'archive'), 'archive')];
+    const files = candidates.map((entry) => entry.path);
+    for (const entry of candidates) {
+        const text = await readFile(entry.path, 'utf8');
         try {
             const parsed = JSON.parse(text);
             if (Array.isArray(parsed.members) && parsed.members.some((m) => m.name === MEMBER)) {
-                return { team: parsed, path, files };
+                if (entry.source === 'archive') {
+                    console.log('[t138] roster doc tu ARCHIVE (live da bi don): ' + entry.path);
+                }
+                return { team: parsed, path: entry.path, files, source: entry.source };
             }
         } catch { /* keep looking */ }
     }
-    return { team: undefined, path: files[0], files };
+    return { team: undefined, path: files[0], files, source: 'none' };
+}
+
+/** The member id must NOT depend on the live team.json. Read it from the agent_teams_create
+ *  RESULT (the tool echoes 'id <uuid>'), then from the roster copy (live or archived). */
+function resolveMemberId(exchange, teamFile) {
+    for (const call of exchange.all('agent_teams_create')) {
+        const text = String(call?.result ?? '');
+        const line = text.split('\n').find((row) => row.replace(/^\s*-\s*/, '').startsWith(MEMBER + ' ('));
+        const match = /id ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/.exec(String(line ?? ''));
+        if (match !== null) return { id: match[1], source: 'agent_teams_create result' };
+    }
+    const record = memberOf(teamFile.team);
+    if (typeof record?.id === 'string' && record.id.length > 0) {
+        return { id: record.id, source: 'team.json (' + String(teamFile.source) + ')' };
+    }
+    return { id: undefined, source: 'khong tim thay' };
 }
 
 /** Locate the member's own session record on disk. */
@@ -154,13 +204,14 @@ async function findMemberRecord(memberId, startedAt) {
     return { path: undefined, text: undefined, scanned: recent.length };
 }
 import { existsSync } from 'node:fs';
-import { zstdDecompressSync } from 'node:zlib';
+import { zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 
 // ------------------------------------------------------------------ prompts
 const longish = 'Work in several steps and do not finish in one step: write notes.md with a 150 word outline, '
     + 'read it back, append five bullet points, read it back again, then write summary.md. Report when both files exist.';
 const promptOne = 'You are the captain of a test team. Execute these four steps in this exact order, one tool call at a time. '
     + 'Do not ask questions, do not wait for any member, do not spawn extra agents. '
+    + 'NEVER call agent_teams_delete or archive the team: the team file must stay in this workspace for the later audit. '
     + 'STEP 1: call agent_teams_create with exactly these arguments '
     + '{"name":"' + TEAM + '","description":"t18 E2E hot switch of a running member route","approval":"automatic","plan":'
     + '{"members":['
@@ -186,18 +237,51 @@ function check(id, ok, detail, evidence) {
 }
 
 // ------------------------------------------------------------------ transcript
-/** Locate the REAL member transcript: $DSH_HOME/sessions/<cwd-slug>/<sessionId>/*.zstd */
-async function findTranscript(memberId) {
+/** Locate the REAL member transcript: $DSH_HOME/sessions/<cwd-slug>/<sessionId>/*.zstd
+ *  Returns { path, tried, how } so a miss can be reported with every path attempted. */
+async function findTranscript(memberId, workspace) {
+    const tried = [];
     const root = join(DSH_HOME, 'sessions');
-    if (await exists(root) === false) return undefined;
-    for (const slug of await readdir(root)) {
-        const dir = join(root, slug, memberId);
-        if (await exists(dir) === false) continue;
+    if (memberId === undefined || String(memberId).length === 0) {
+        return { path: undefined, tried, how: 'khong co member id de tim transcript' };
+    }
+    if (await exists(root) === false) return { path: undefined, tried, how: 'khong ton tai ' + root };
+    const slugOf = (target) => '--' + String(target).split(':').join('/').split(String.fromCharCode(92)).join('/').split('/').filter(Boolean).join('-') + '--';
+    const firstZstd = async (dir) => {
         for (const name of await readdir(dir)) {
             if (name.endsWith('.zstd')) return join(dir, name);
         }
+        return undefined;
+    };
+    const exact = join(root, slugOf(workspace), memberId);
+    tried.push(exact);
+    if (await exists(exact)) {
+        const hit = await firstZstd(exact);
+        if (hit !== undefined) return { path: hit, tried, how: 'slug workspace' };
     }
-    return undefined;
+    for (const slug of await readdir(root)) {
+        const dir = join(root, slug, memberId);
+        tried.push(dir);
+        if (await exists(dir) === false) continue;
+        const hit = await firstZstd(dir);
+        if (hit !== undefined) return { path: hit, tried, how: 'quet slug ' + slug };
+    }
+    for (const slug of await readdir(root)) {
+        const slugDir = join(root, slug);
+        for (const entry of await readdir(slugDir)) {
+            const dir = join(slugDir, entry);
+            const info = await stat(dir).catch(() => undefined);
+            if (info?.isDirectory() !== true) continue;
+            for (const name of await readdir(dir)) {
+                if (name.endsWith('.zstd') === false) continue;
+                const candidate = join(dir, name);
+                tried.push(candidate);
+                const events = await readTranscriptEvents(candidate);
+                if (JSON.stringify(events).includes(String(memberId))) return { path: candidate, tried, how: 'khop noi dung' };
+            }
+        }
+    }
+    return { path: undefined, tried, how: 'khong thay transcript cua member' };
 }
 /** The harness appends one zstd frame per flush, so a whole-file decompress
  *  only yields the first frame. Walk the frame magic instead. */
@@ -274,17 +358,31 @@ function coldRouteRead(stateRoot, teamId) {
     try { return JSON.parse(run.stdout); } catch { return { error: run.stdout }; }
 }
 
-async function analyse(runDir) {
+async function loadContext(runDir) {
     const meta = JSON.parse((await readIfExists(join(runDir, 'run-meta.json'))) || '{}');
     const out1 = await readIfExists(join(runDir, 'session1.stdout.txt'));
     const err1 = await readIfExists(join(runDir, 'session1.stderr.txt'));
-    const out2 = await readIfExists(join(runDir, 'session2.stdout.txt'));
     const workspace = meta.workspace;
     const exchange = toolExchange(out1);
     const teamFile = await readTeamFile(workspace);
+    const memberId = resolveMemberId(exchange, teamFile);
+    const transcript = await findTranscript(memberId.id, workspace);
+    return { meta, out1, err1, workspace, exchange, teamFile, memberId, transcript };
+}
+
+async function analyse(runDir, options = {}) {
+    results.length = 0;
+    const ctx = await loadContext(runDir);
+    const { meta, out1, err1, workspace, exchange, teamFile, memberId } = ctx;
+    const out2 = await readIfExists(join(runDir, 'session2.stdout.txt'));
     const team = teamFile.team;
     const memberRecord = memberOf(team);
-
+    let transcriptResult = ctx.transcript;
+    if (options.transcriptPath !== undefined) {
+        transcriptResult = { path: options.transcriptPath, tried: [options.transcriptPath], how: 'tham so --transcript' };
+    } else if (options.memberIdOverride !== undefined) {
+        transcriptResult = await findTranscript(options.memberIdOverride, workspace);
+    }
     // C1 — the captain created the roster with the declared initial route.
     const create = exchange.first('agent_teams_create');
     const plannedMember = create?.input?.plan?.members?.find((m) => m.name === MEMBER);
@@ -293,13 +391,16 @@ async function analyse(runDir) {
         'agent_teams_create built a 2-member roster whose ' + MEMBER + ' starts on ' + routeLabel(INITIAL),
         'planned=' + routeLabel(plannedMember) + ' result="' + String(create?.result ?? '(no create call)').split('\n')[0] + '"');
 
-    // C2 — the switch hit a member that was already running.
+    // C2 — the switch hit a member that was already running. The member id comes from the
+    //      create RESULT (or a workspace session scan), never from the live team.json: the
+    //      captain may have archived the team before this analysis runs.
     const statusBefore = exchange.all('agent_teams_status').at(0);
     const statusAfter = exchange.all('agent_teams_status').at(-1);
     const runningBefore = /worker-a[^\n]*working\/running/.test(String(statusBefore?.result ?? ''));
-    check('C2', runningBefore && typeof memberRecord?.id === 'string' && memberRecord.id.length > 0,
+    check('C2', runningBefore && typeof memberId.id === 'string' && memberId.id.length > 0,
         'member was working/running (spawned child session) when the route changed',
-        'status before switch: "' + (String(statusBefore?.result ?? '').split('\n').find((l) => l.includes('worker-a')) ?? '(none)') + '"');
+        'status before switch: "' + (String(statusBefore?.result ?? '').split('\n').find((l) => l.includes('worker-a')) ?? '(none)') + '"'
+        + ' | member id=' + String(memberId.id) + ' qua ' + memberId.source);
 
     // C3 — the tool reported the live path, not only a durable write.
     const route = exchange.first('agent_teams_set_member_route');
@@ -309,11 +410,13 @@ async function analyse(runDir) {
         'agent_teams_set_member_route reported applied to the LIVE session (text form of applied=live-and-durable)',
         'input=' + JSON.stringify(route?.input ?? null) + ' result="' + routeText.split('\n')[0] + '"');
 
-    // C4 — the durable team record carries the new route.
+    // C4 — the durable team record carries the new route (from the LIVE copy, or the ARCHIVE
+    //      copy when the captain ended and archived the team before this analysis ran).
     const durableRoute = pickRoute(memberRecord);
     check('C4', durableRoute?.provider === TARGET.provider && durableRoute?.model === TARGET.model,
         'team.json records the new route for ' + MEMBER,
-        'route=' + routeLabel(durableRoute) + ' routeOverride=' + JSON.stringify(memberRecord?.routeOverride ?? null));
+        'route=' + routeLabel(durableRoute) + ' routeOverride=' + JSON.stringify(memberRecord?.routeOverride ?? null)
+        + ' | doc tu: ' + String(teamFile.source).toUpperCase() + ' ' + String(teamFile.path));
 
     // C5 — the independent audit row (the plugin writes it under the WORKSPACE).
     const auditPath = join(workspace, 'docs', 'log', 'MODEL-SWITCH.md');
@@ -324,7 +427,7 @@ async function analyse(runDir) {
         auditRow === '' ? 'no row under ' + auditPath : 'path=' + auditPath + ' row=' + auditRow.trim());
 
     // C6 + C7 — the member's own transcript: notice, then the next request.
-    const transcriptPath = await findTranscript(String(memberRecord?.id ?? meta.memberId ?? ''));
+    const transcriptPath = transcriptResult.path;
     let noticeEvent;
     let headerBefore;
     let headerAfter;
@@ -344,8 +447,9 @@ async function analyse(runDir) {
     const noticeText = noticeEvent === undefined ? '' : JSON.stringify(noticeEvent.data.content?.[0]?.text ?? '');
     check('C6', noticeEvent !== undefined && noticeText.includes('[model changed:') && noticeText.includes(TARGET.model) && noticeText.includes(INITIAL.model),
         'member conversation carries the host model-changed notice',
-        transcriptPath === undefined ? 'transcript not found under ' + join(DSH_HOME, 'sessions')
-            : 'path=' + transcriptPath + ' frames=' + transcript.frames + ' seq=' + String(noticeEvent?.seq) + ' text=' + noticeText.slice(0, 200));
+        transcriptPath === undefined
+            ? 'FAIL ly do: KHONG tim thay transcript cua member ' + MEMBER + ' (id ' + String(memberId.id) + ' qua ' + memberId.source + ') — da thu: ' + transcriptResult.tried.join(' | ')
+            : 'path=' + transcriptPath + ' (' + String(transcriptResult.how) + ') frames=' + String(transcript.frames) + ' seq=' + String(noticeEvent?.seq) + ' text=' + noticeText.slice(0, 200));
 
     const afterConfig = headerAfter?.data?.header?.config;
     const beforeConfig = headerBefore?.data?.header?.config;
@@ -354,44 +458,48 @@ async function analyse(runDir) {
         && beforeConfig !== undefined && beforeConfig.model === INITIAL.model,
         'the FIRST request after the notice ran the new route (previous request ran the old one)',
         'request/header before=' + JSON.stringify(beforeConfig ?? null) + ' after=' + JSON.stringify(afterConfig ?? null)
-        + ' (seq ' + String(headerBefore?.seq) + ' -> ' + String(headerAfter?.seq) + ')');
+        + ' (seq ' + String(headerBefore?.seq) + ' -> ' + String(headerAfter?.seq) + ')'
+        + (transcriptPath === undefined ? ' transcript NOT FOUND: ' + transcriptResult.tried.join(' | ') : ''));
 
-    // C8 — the open attempt survived the switch.
+
+    // C8 — the open attempt survived the switch (the SAME attempt id the team record holds
+    //      must appear in the member own transcript: that is what 'the attempt survived' means).
     const task = team?.tasks?.find((entry) => entry.assignee === MEMBER);
     const attemptBefore = /work attempt (\d+)/.exec(String(statusBefore?.result ?? ''))?.[1];
     const attemptAfter = /work attempt (\d+)/.exec(String(statusAfter?.result ?? ''))?.[1];
-    const claimAttemptId = transcript === undefined ? undefined
-        : /sourceAttemptId|attempt id (\S+)/i.exec(transcript.text)?.[1];
-    const claimedInTranscript = transcript !== undefined && task?.attemptId !== undefined
-        && transcript.text.includes(String(task.attemptId));
-    check('C8', attemptBefore === attemptAfter && attemptBefore !== undefined
-        && (claimedInTranscript || claimAttemptId !== undefined),
+    const claimedInTranscript = transcript !== undefined && typeof task?.attemptId === 'string'
+        && transcript.text.includes(task.attemptId);
+    check('C8', attemptBefore === attemptAfter && attemptBefore !== undefined && claimedInTranscript,
         'member kept its open attempt across the switch and finished that same attempt',
         'status attempt before=' + String(attemptBefore) + ' after=' + String(attemptAfter)
         + ' team.json attempt=' + String(task?.attempt) + ' attemptId=' + String(task?.attemptId)
         + ' attemptId appears in member transcript=' + claimedInTranscript
-        + ' task status=' + String(task?.status));
+        + ' task status=' + String(task?.status) + ' transcript=' + String(transcriptPath ?? 'NOT FOUND'));
 
     // C9 — a cold process, using the plugin's own reader, still sees the route.
-    const cold = coldRouteRead(join(workspace, '.agent-teams'), TEAM);
+    const coldRoot = teamFile.source === 'archive' ? join(workspace, '.agent-teams', 'archive') : join(workspace, '.agent-teams');
+    const cold = coldRouteRead(coldRoot, TEAM);
     const coldRoute = pickRoute(cold?.member);
     const coldSessionText = out2.trim().split('\n').at(-1) ?? '';
     check('C9', coldRoute?.provider === TARGET.provider && coldRoute?.model === TARGET.model,
         'a cold process (no live session) re-read the route through the plugin own state reader',
-        'module=' + String(cold?.module) + ' route=' + routeLabel(coldRoute) + ' error=' + String(cold?.error ?? 'none')
-        + ' | fresh LLM session said: "' + coldSessionText.slice(0, 120) + '"');
+        'stateRoot=' + coldRoot + ' (nguon team.json=' + teamFile.source + ') module=' + String(cold?.module) + ' route=' + routeLabel(coldRoute)
+        + ' error=' + String(cold?.error ?? 'none') + ' | fresh LLM session said: "' + coldSessionText.slice(0, 120) + '"');
 
     const summary = {
         runDir, workspace, team: TEAM, member: MEMBER, initial: INITIAL, target: TARGET,
+        teamFile: teamFile.path, teamFileSource: teamFile.source, memberId: memberId.id, memberIdSource: memberId.source,
+        transcript: transcriptPath, transcriptTried: transcriptResult.tried, transcriptHow: transcriptResult.how,
         session1: { exit: meta.status1, sessionId: exchange.sessionId, stderrTail: err1.slice(-300) },
         session2: { exit: meta.status2, stderrTail: (await readIfExists(join(runDir, 'session2.stderr.txt'))).slice(-300) },
-        teamFile: teamFile.path, transcript: transcriptPath, audit: auditPath,
+        audit: auditPath,
         checks: results,
         verdict: results.every((entry) => entry.ok) ? 'PASS' : 'FAIL',
         proved: results.filter((entry) => entry.ok).map((entry) => entry.id),
         unproved: results.filter((entry) => entry.ok === false).map((entry) => entry.id),
     };
-    await writeFile(join(runDir, 'result.json'), JSON.stringify(summary, null, 2), 'utf8');
+    if (options.writeResult !== false) await writeFile(join(runDir, 'result.json'), JSON.stringify(summary, null, 2), 'utf8');
+    else console.log('# --analyze: chi doc, khong ghi result.json vao artifact');
     console.log('');
     console.log('verdict ' + summary.verdict + ' - proved ' + summary.proved.join(',') + '; unproved ' + (summary.unproved.join(',') || 'none'));
     console.log('artifacts ' + runDir);
@@ -413,9 +521,114 @@ async function preflight() {
     return problems;
 }
 
+function stampNow() {
+    return new Date().toISOString().replaceAll(':', '-').replace(/[.][0-9]+Z$/, '');
+}
+
+/** Rewrite the transcript of a run artefact into a NEW file (never in place). */
+function encodeTranscript(events) {
+    const text = events.map((event) => JSON.stringify(event)).join('\n') + '\n';
+    return zstdCompressSync(Buffer.from(text, 'utf8'));
+}
+
+/** A5 — three negative controls, each on a COPY under tests/tmp/t138. */
+async function runNegativeControls(runDir) {
+    const outRoot = join(repoRoot, 'tests', 'tmp', 't138', stampNow());
+    await mkdir(outRoot, { recursive: true });
+    const ctx = await loadContext(runDir);
+    const realTranscript = ctx.transcript.path;
+    const lines = [];
+    const record = (ok, text) => { lines.push({ ok, text }); console.log((ok ? 'PASS ' : 'FAIL ') + text); };
+    if (realTranscript === undefined) {
+        console.log('FAIL negative — no transcript to mutate; tried: ' + ctx.transcript.tried.join(', '));
+        process.exit(1);
+    }
+    const base = await readTranscriptEvents(realTranscript);
+    const baseline = await analyse(runDir, { writeResult: false });
+    record(baseline.verdict === 'PASS', 'baseline (artifact as-is, no mutation) => verdict ' + baseline.verdict);
+
+    const cases = [
+        {
+            id: 'N1', desc: 'xoá event notice [model changed: ...] => C6 va C7 phai DO',
+            expectRed: ['C6', 'C7'], expectGreen: ['C1', 'C3', 'C5'],
+            mutate: (events) => events.filter((event) => (event.type === 'user/message' && event.data?.source?.form === 'notice') === false),
+        },
+        {
+            id: 'N2', desc: 'doi provider/model cua request/header SAU notice => C7 phai DO',
+            expectRed: ['C7'], expectGreen: ['C6', 'C8'],
+            mutate: (events) => {
+                const noticeSeq = events.find((event) => event.type === 'user/message' && event.data?.source?.form === 'notice')?.seq;
+                return events.map((event) => {
+                    if (event.type !== 'request/header' || noticeSeq === undefined || event.seq <= noticeSeq) return event;
+                    const copy = JSON.parse(JSON.stringify(event));
+                    copy.data = copy.data ?? {};
+                    copy.data.header = copy.data.header ?? {};
+                    copy.data.header.config = { provider: INITIAL.provider, model: INITIAL.model };
+                    return copy;
+                });
+            },
+        },
+        {
+            id: 'N3', desc: 'xoá attemptId khoi transcript => C8 phai DO',
+            expectRed: ['C8'], expectGreen: ['C6', 'C7'],
+            mutate: (events) => {
+                const attemptId = ctx.teamFile?.team?.tasks?.find((task) => task.assignee === MEMBER)?.attemptId;
+                if (attemptId === undefined) return events;
+                return JSON.parse(JSON.stringify(events).split(attemptId).join('00000000-0000-4000-8000-000000000000'));
+            },
+        },
+        {
+            id: 'N4', desc: 'member id khong co transcript => C6,C7,C8 phai DO va evidence neu duong dan da thu',
+            expectRed: ['C6', 'C7', 'C8'], expectGreen: ['C1', 'C2', 'C3', 'C4', 'C5', 'C9'],
+            analyseOptions: { memberIdOverride: 'ffffffff-ffff-4fff-bfff-' + String(Date.now()).slice(-12) },
+            expectEvidence: { C6: 'da thu: ', C7: 'transcript NOT FOUND' },
+            mutate: (events) => events,
+        },
+    ];
+    let allOk = true;
+    for (const item of cases) {
+        const caseDir = join(outRoot, item.id);
+        const runCopy = join(caseDir, 'run');
+        await mkdir(caseDir, { recursive: true });
+        await cp(runDir, runCopy, { recursive: true, force: true });
+        const mutated = item.mutate(base.events);
+        if (item.id === 'N3' && JSON.stringify(mutated) === JSON.stringify(base.events)) {
+            record(false, item.id + ' — mutation did not change anything (no attemptId in transcript)');
+            allOk = false;
+            continue;
+        }
+        const mutatedPath = join(caseDir, 'transcript.mutated.zstd');
+        await writeFile(mutatedPath, encodeTranscript(mutated));
+        const caseOptions = { writeResult: false, ...(item.analyseOptions ?? {}) };
+        if (item.analyseOptions === undefined) caseOptions.transcriptPath = mutatedPath;
+        const verdict = await analyse(runCopy, caseOptions);
+        const red = item.expectRed.filter((id) => verdict.checks.find((entry) => entry.id === id)?.ok === false);
+        const green = item.expectGreen.filter((id) => verdict.checks.find((entry) => entry.id === id)?.ok === true);
+        const evidenceMissed = Object.entries(item.expectEvidence ?? {})
+            .filter(([id, needle]) => String(verdict.checks.find((entry) => entry.id === id)?.evidence ?? '').includes(needle) === false)
+            .map(([id]) => id);
+        const ok = red.length === item.expectRed.length && green.length === item.expectGreen.length && evidenceMissed.length === 0;
+        allOk = allOk && ok;
+        record(ok, item.id + ' — ' + item.desc + ' :: red=' + red.join(',') + ' green=' + green.join(',')
+            + ' evidence_missed=' + (evidenceMissed.join(',') || 'none') + ' verdict=' + verdict.verdict + ' unproved=' + verdict.unproved.join(','));
+    }
+    await writeFile(join(outRoot, 'negative-controls.json'), JSON.stringify({ lines }, null, 2), 'utf8');
+    console.log('');
+    console.log('negative controls ' + (allOk ? 'PASS' : 'FAIL') + ' — artifacts ' + outRoot);
+    process.exit(allOk ? 0 : 1);
+}
+
 async function main() {
+    if (negativeTarget !== undefined) {
+        await runNegativeControls(negativeTarget);
+        return;
+    }
     if (analyzeOnly !== undefined) {
-        const summary = await analyse(analyzeOnly);
+        if (await exists(analyzeOnly) === false) {
+            console.log('FAIL usage — analyze target does not exist: ' + analyzeOnly);
+            process.exit(2);
+        }
+        const summary = await analyse(analyzeOnly, { writeResult: false });
         process.exit(summary.verdict === 'PASS' ? 0 : 1);
     }
     const problems = await preflight();
@@ -424,7 +637,7 @@ async function main() {
         console.log('fix: node tools/test/test-env.mjs');
         process.exit(1);
     }
-    const stamp = new Date().toISOString().replaceAll(':', '-').replace(/\..+$/, '');
+    const stamp = new Date().toISOString().replaceAll(':', '-').replace(/[.].+$/, '');
     const runDir = join(repoRoot, 'tests', 'tmp', 'e2e-hotswitch', stamp);
     const workspace = join(runDir, 'workspace');
     await mkdir(workspace, { recursive: true });
@@ -448,7 +661,7 @@ async function main() {
         elapsed1: one.elapsedMs, elapsed2: two.elapsedMs,
         error1: one.error, error2: two.error,
     }, null, 2), 'utf8');
-    const summary = await analyse(runDir);
+    const summary = await analyse(runDir, { writeResult: true });
     process.exit(summary.verdict === 'PASS' ? 0 : 1);
 }
 

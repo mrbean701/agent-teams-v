@@ -28,11 +28,11 @@ const bundlePath = path.join(pkgDir, 'lib', 'client.js');
 // stale or half-built lib/client.js passed silently. The identity of the shipped
 // bundle is pinned here and ASSERTED below. Both values come from the artifact
 // produced by `node build/build.mjs` inside packages/dsh-agent-teams.
-// t129: re-measured after t128 moved DependencyMap + AddMemberControl above the member
-// list (the same byte count, different bytes). Measured with node:crypto over the file
-// bytes, not copied from t59's FROZEN table.
-const EXPECTED_BUNDLE_SHA256 = '377bcea2394cc0ac3dd69b7c1dba05b56e90b0d5db9a1b565840e057bc0cb47d';
-const EXPECTED_BUNDLE_BYTES = 258432;
+// t139: re-measured after the panel was re-laid out into two columns (member column left with
+// add-member on top, dependency map right); the bundle grew by the wrapper div plus its class
+// names. Measured with node:crypto over the file bytes, not copied from t59's FROZEN table.
+const EXPECTED_BUNDLE_SHA256 = '7dca20dd1edf2c6688a9d32d56a2f03f0ce13feac3bc71a57c05bfbdc65b1165';
+const EXPECTED_BUNDLE_BYTES = 258790;
 
 let failures = 0;
 const results = [];
@@ -175,14 +175,16 @@ check('mutation: one appended byte breaks the pinned identity', hashMutatedProbl
 
 // ---------------------------------------------------------------- check 2b (t129)
 // The pin above catches 'the bundle is not the artifact I measured'. It cannot catch
-// 'the artifact is measured but its parts sit in the wrong order': the same 258 432
-// bytes could be pinned while the panel above the member list reads wrong. t128 moved
-// DependencyMap + AddMemberControl ABOVE the members IIFE, so their ORDER is asserted
-// here, with an in-memory negative control built from the OLD order.
+// 'the artifact is measured but its parts sit in the wrong order': the same bytes
+// could be pinned while the panel reads wrong. t139 replaced the t128 single column
+// (DependencyMap above the members IIFE, which pushed the member list off screen)
+// with two columns: AddMemberControl then the member list on the LEFT, DependencyMap
+// on the RIGHT. So the left column must appear BEFORE the right column in the bundle,
+// with an in-memory negative control built from the rejected t128 order.
 const PANEL_ORDER = [
-    ['DependencyMap above the member list', 'DependencyMap, { tasks'],
     ['AddMemberControl above the member list', 'AddMemberControl, { team'],
     ['the member list (orderDelegationMembers call)', 'orderDelegationMembers(team.members, team.tasks)'],
+    ['DependencyMap in the right-hand column', 'DependencyMap, { tasks'],
 ];
 function panelOrderProblems(text) {
     const problems = [];
@@ -203,16 +205,16 @@ function panelOrderProblems(text) {
     return problems;
 }
 const orderProblems = panelOrderProblems(source);
-check('panel order: DependencyMap < AddMemberControl < member list', orderProblems.length === 0,
+check('panel order (t139): AddMemberControl < member list < DependencyMap — the member column renders before the dependency column', orderProblems.length === 0,
     orderProblems.length === 0
         ? PANEL_ORDER.map((entry) => entry[1] + '@' + source.indexOf(entry[1])).join(' < ')
         : orderProblems.join('; '));
-// Negative control in memory: the pre-t128 order (AddMemberControl and DependencyMap
-// both BELOW the member list) must fail the SAME predicate, otherwise the check above
-// could only ever pass by construction.
-const oldOrderSource = [PANEL_ORDER[1][1], PANEL_ORDER[2][1], PANEL_ORDER[0][1]].join('\n');
+// Negative control in memory: the REJECTED t128 order (DependencyMap first, the member
+// column after it) must fail the SAME predicate, otherwise the check above could only
+// ever pass by construction.
+const oldOrderSource = [PANEL_ORDER[2][1], PANEL_ORDER[0][1], PANEL_ORDER[1][1]].join('\n');
 const oldOrderProblems = panelOrderProblems(oldOrderSource);
-check('mutation: the pre-t128 order fails the same order check',
+check('mutation: the rejected t128 order fails the same order check',
     oldOrderProblems.length > 0 && oldOrderProblems.every((problem) => problem.includes('must precede')),
     'applies: ' + (oldOrderSource !== source) + ', problems: ' + oldOrderProblems.join('; '));
 

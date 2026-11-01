@@ -806,3 +806,31 @@ Các vòng trước đột biến SẢN PHẨM rồi xem cổng có đỏ. Lư�
 3. **Ghi route lên member không có phiên sống để lại hai dấu vết phụ.** Bản copy ERP sau một lần `set_member_route` khác gốc đúng 4 chỗ: `captainSessionId` (do ta rebind), `routeOverride` (kết quả cần), `members[8].status` `working`→`idle`, `tasks[106].updatedAt`. Hai chỗ sau là hệ quả của lần ghi; ghi nhận để lần sau không nhầm là hỏng dữ liệu.
 4. **Một suite LIVE báo FAIL không có nghĩa sản phẩm sai.** t18 báo 6/9 FAIL, nhưng chính artifact của nó chứng minh sản phẩm đúng: notice `[model changed: …]` seq 19, `request/header` seq 11 cũ → seq 20 mới, task giữ attempt 1 và hoàn thành. Bài học: trước khi mở card sửa sản phẩm, phải đọc artifact và chỉ ra ca nào trượt vì ĐỌC SAI CHỖ; nếu không sẽ đi vá một thứ không hỏng.
 5. **`--analyze` phụ thuộc trạng thái SỐNG của workspace là một lớp lỗi.** Team bị archive trong lúc chạy (model tự gọi thêm `agent_teams_delete`) ⇒ mọi phép đọc `team.json` sống trả undefined và 6 ca trượt. Bộ kiểm phải có fallback đọc bản archive và phải IN RÕ nguồn nó đọc — đã thành A1/A2/A3 của t138.
+
+## Vòng 21 (phần 3) — người dùng bác bố cục panel, mở t139
+
+1. **Giả định (A) của captain là SAI, và sai vì đã không hỏi.** t128 chốt 'dependency lên TRÊN khối member' khi không có dữ kiện nào về 'vị trí cũ' (đã quét 21 bản cài, không bản nào khác). Yêu cầu thật là HAI CỘT: phải = Task dependencies, trái = list member, add-member ngay trên list.
+2. **Triệu chứng người dùng thấy mới là thứ đáng chặn:** DAG 138 task không có giới hạn chiều cao (`.dagViewport` chỉ `overflow-x:auto`) nên đứng trước khối member thì đẩy add-member + list member ra khỏi màn hình — nhìn như 'mất cả cột'. Bài học: đặt một khối có chiều cao phụ thuộc DỮ LIỆU (số task) TRƯỚC một khối có chiều cao phụ thuộc NGƯỜI DÙNG (số member) là lỗi bố cục, không phải lỗi thẩm mỹ.
+3. **Luật mới:** yêu cầu về BỐ CỤC mà không có ảnh/không có bản cũ để đối chiếu thì phải đưa vào `ask_user_question` kèm mô tả từng phương án, KHÔNG tự chọn rồi ghi 'giả định (A)'. Ghi giả định vào log không làm nó đúng.
+
+## Vòng 21 (phần 3b) — bài học khi chấm t138
+
+1. **CLI fail-closed tự bắt chính captain.** Tôi chạy `node tests/t18-hot-switch-e2e.mjs --negative` (thiếu đường dẫn) và nhận `FAIL usage — --negative can mot duong dan` + EXIT 2. Đó là hành vi ĐÚNG (fail-closed) — nhưng bài học là: đọc usage trước khi chạy, và một EXIT khác 0 chưa chắc là sản phẩm hỏng.
+2. **`--analyze` chỉ đọc phải được chứng minh bằng trạng thái artifact, không bằng lời khai.** Cách kiểm rẻ: chạy analyze trên artifact ĐÃ FAIL rồi đọc lại `result.json` — nếu vẫn FAIL thì analyze không tự chữa. Nay là phép kiểm bắt buộc cho mọi `--analyze`.
+3. **Vượt trần lượt suite phải báo thẳng, không giấu.** Member tự khai 14 lượt (trần 6) và 2 boot (trần 3), kèm lý do 6 lỗi thật của chính bộ kiểm. Captain chấp nhận nhưng ghi vào hồ sơ: trần là để phát hiện vòng lặp, không phải để bắt member dừng khi còn lỗi thật.
+
+## Vòng 22 — captain tự chấm t139 (panel hai cột) + t140 (pack vòng 22)
+
+1. **Mutation phải nhắm cả BỘ KIỂM, không chỉ sản phẩm**: hai phép của captain (hoán nhãn `data-panel-column` member↔dependency, delta 0 B; xoá `max-height:52vh;` trong CSS, −16 B) làm t128 rơi 24 → 18 ca, trong đó C3 là ĐỐI CHỨNG ÂM của chính phép thứ hai — tức bộ kiểm tự chứng minh nó không phải 'so chuỗi cho vui'.
+2. **Sửa nguồn mà không rebuild là một lớp lỗi riêng**: hai phép trên cũng làm B3 (build trên bản sao phải tái lập byte-identical) và X2 (bảng FROZEN) đỏ — dấu hiệu đúng cho 'nguồn đã đổi, bundle chưa sinh lại'. Ghi vào luật: mọi card đổi giao diện phải có bước `node build/build.mjs` và bảng FROZEN cập nhật TRONG CÙNG task (quy ước t114).
+3. **Cổng hợp đồng bắt hai lỗi thật của captain trong cùng vòng**: (a) t139 thiếu `tests/t129-pins.mjs` trong `inScope` dù acceptance A6 đòi nó EXIT 0 ⇒ phải amend rev 1, KHÔNG nới kỳ vọng; (b) t141 khai `outOfScope: tests` bao trùm `inScope: tests/tmp/t141` ⇒ phép (f) FAIL, và bản amend đầu bị TỪ CHỐI vì entry `../ERP` chứa `..` — bài học: `outOfScope` chỉ nhận đường dẫn workspace-relative thuần, muốn chặn thư mục cha thì liệt kê TỆP cụ thể.
+4. **Đo offset phải nói rõ đơn vị**: captain đo byte trong bundle giải nén từ tarball (grid@176 449 · member@176 577 · dependency@182 917); member đo 176 450 / 176 578 / 182 918 vì marker của họ bỏ dấu nháy mở. Lệch +1 đồng nhất ⇒ cùng một sự thật, nhưng nếu không ghi đơn vị và marker thì hai bên sẽ cãi nhau về 'sai số'.
+5. **`--analyze` của t140 đã chứng minh chỉ-đọc**: sha tarball trước/sau khi chấm giống tuyệt đối (bài học T132-F1 đã vá ở t133 và được kế thừa qua khuôn t135).
+
+## Vòng 23 — captain chấm t142 (panel ba khối) và vì sao phải mở vòng sau vòng 22
+
+1. **Bố cục phải hỏi hoặc đối chiếu ảnh, không được tự chọn**: t139 tôi tự chốt 1:1 rồi ghi log; người dùng bác bằng ảnh chụp panel thật (mọi thứ bị bóp trong ~490px). t142 đổi sang **1:2** với cột trái `minmax(280px,1fr)` và đưa `DependencyMap` ra thành **con trực tiếp** của `section.team`. Luật: thay đổi bố cục phải có (a) ảnh chụp/geometry từ người dùng, hoặc (b) một bản cài cũ làm chuẩn — nếu không có cả hai thì phải `ask_user_question`.
+2. **Đột biến phải đặt lại ĐÚNG thứ bị bác**: phép của tôi đổi `2fr`→`1fr` (−1 B) làm t128 đỏ ở C1/C2 với nguyên văn '(NOT the rejected 1 : 1)' và '(the rejected t139 split)' — tức cổng ghi nhớ chính sai lầm đã bị người dùng bác, chứ không chỉ so chuỗi.
+3. **Cấu trúc DOM mới phải xoá dấu vết cũ**: t142 xoá hẳn `panelColumns`/`panelColumnAside` khỏi mã và CSS, và t143 được giao phép kiểm byte rằng `data-panel-columns` xuất hiện 0 lần trong bundle bản cài — nếu để lại, một bố cục cũ có thể 'sống sót' trong khuyết điểm mà không cổng nào thấy.
+4. **`agent_teams_update_task` từ chối `completed` + `needs_revision`**: audit-goat đúng khi đóng t141 bằng `status=failed` + verdict `needs_revision`. Ghi vào luật để lần sau không mất lượt thử.
+5. **Ngưỡng `@container` không tên đo container gần nhất, không phải phần tử đang style**: `@container (width>=800px){.team[data-workspace-team]{…}}` đo container TỔ TIÊN gần nhất có `container-type` (ở workspace là `.eDfHrq_root`), không đo `.team`. Đây là rủi ro đã khai trong `docs/kiem-thu/t142-three-columns.md`; nếu sau này chèn container khác thì ngưỡng có thể sai phần tử.

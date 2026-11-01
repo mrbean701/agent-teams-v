@@ -198,3 +198,17 @@ Nhưng chính audit đó mở **V20-F1 (medium)**: `mappings` của `lib/client.
 Bài học quan trọng nhất của vòng này là một kết luận SAI của captain: tôi đã khẳng định 'repo không còn toolchain build' sau khi kiểm `tsconfig.json`, `tsconfig.client.json`, `scripts/clean-build.mjs` — và ghi kết luận đó vào BA/ACTIVITY/báo cáo. Thực tế `build/build.mjs` tồn tại và dùng esbuild 0.28.2; chạy nó **tái lập `lib/client.js` byte-identical** `377bcea2394cc0ac…`/258 432 B. Tức là 'thiếu file cấu hình của một toolchain cụ thể' KHÔNG đồng nghĩa 'không có cách sinh lại artefact'. Vì kết luận sai đó, cả một vòng được thiết kế để 'sửa tay bundle' trong khi lẽ ra chỉ cần chạy build.
 
 Vì `lib/client.js.map` đổi ⇒ bộ byte phát hành đổi ⇒ phải pack vòng 21 (t135) và audit vòng 21 (t136) trước khi công bố bản có sourcemap đúng.
+## Vòng 22 — vì sao phải mở vòng mới (sau t139)
+
+- **Sự kiện**: người dùng bác bố cục panel mà captain tự chốt ở t128 (m07538 + m07553 kèm ảnh) ⇒ t139 đổi `lib/client/ActivityPanel.js`, `lib/client/ActivityPanel.module.css`, rồi sinh lại `lib/client.js` + `lib/client.js.map` bằng `node build/build.mjs`.
+- **Hệ quả bắt buộc**: 4 tệp thuộc bảng đóng băng 13 dòng đổi byte ⇒ verdict audit vòng 21 (`6db464d1…`/2 248 091 B) **hết hiệu lực**; không được công bố bộ byte đó nữa, dù bản vòng 21 đã cài trong profile `desktop` một lúc.
+- **Vì sao không 'vá nhỏ trong vòng cũ'**: verdict vòng 21 gắn với ĐÚNG bộ byte đã chấm; sửa `lib/**` rồi tuyên bố verdict cũ còn hiệu lực là tự phá nguyên tắc 'byte đã chấm = byte được công bố'.
+- **Vì sao KHÔNG đợi vá thêm**: 5 finding còn lại của vòng 21 đều mức low (V21-F1..F5) và đã đóng ở t137; vòng 22 chỉ khác vòng 21 đúng 4 tệp nên phạm vi audit hẹp (chứng minh bằng C1 của brief t141).
+- **Rủi ro riêng của vòng này**: đây là lần đầu bản phát hành đổi BỐ CỤC giao diện, và là lần đầu có phép kiểm ở mức BYTE PHÁT HÀNH cho bố cục (t140 A13) — nếu phép đó mù thì người dùng vẫn nhận panel sai dù mọi cổng nguồn xanh.
+
+## Vòng 23 — vì sao phải mở vòng mới ngay sau vòng 22
+
+- **Sự kiện**: người dùng chụp ảnh panel thật và bác bố cục 1:1 của t139 ('member list và dependencies đang ở chung 1 cột'). Audit vòng 22 (t141) đóng với **V22-F0 high** đúng lỗi đó ⇒ bộ byte `b65f60fd…` KHÔNG được công bố.
+- **Vì sao không 'sửa nhỏ trong vòng 22'**: bố cục là thứ người dùng nhìn thấy; sửa `lib/client.js`/CSS rồi giữ verdict cũ là tuyên bố sai về bộ byte đang chạy. Byte đổi ⇒ verdict phải đổi.
+- **Phạm vi vòng 23**: t142 chỉ đổi 5 tệp (3 nguồn + bundle + map) + 3 pin + 1 doc; 10 tệp còn lại của bảng đóng băng phải nguyên byte — t143 có phép kiểm riêng cho việc đó (A3/A4).
+- **Rủi ro chính**: bố cục mới phụ thuộc `@container` KHÔNG có tên; nếu Host chèn container khác giữa panel và `section.team` thì ngưỡng 800px đo sai phần tử và người dùng lại thấy bố cục dọc. Đã khai trong `docs/kiem-thu/t142-three-columns.md`; t143 phải chứng minh bằng BYTE trong bản cài rằng CSS 1:2 thực sự nằm trong bundle phát hành.

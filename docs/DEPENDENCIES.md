@@ -2,7 +2,7 @@
 
 > File sinh tu dong boi `node tools/dependency-report.mjs`. KHONG sua tay: sua du lieu goc roi chay lai.
 > Nguon: `.agent-teams/nami-agent-teams/team.json` (canh that) + `docs/provenance-tasks.json` (canh provenance).
-> Sinh luc: 2026-11-01T06:05:15.118Z · pha doi: **running** · 138 task / 15 member.
+> Sinh luc: 2026-11-01T07:58:19.963Z · pha doi: **running** · 146 task / 15 member.
 
 ## 1. Cach doc
 
@@ -21,6 +21,9 @@ flowchart LR
     t9["t9<br/>✅ completed<br/>dev-tools-flash"]
     t57["t57<br/>✅ completed<br/>dev-ui-goat"]
     t128["t128<br/>✅ completed<br/>dev-ui-goat"]
+    t140["t140<br/>✅ completed<br/>dev-build-flash"]
+    t141["t141<br/>❌ failed<br/>audit-goat"]
+    t144["t144<br/>✅ completed<br/>audit-goat"]
   end
   subgraph W1["Song 1"]
     direction TB
@@ -29,12 +32,16 @@ flowchart LR
     t22["t22<br/>✅ completed<br/>dev-tools-flash"]
     t60["t60<br/>✅ completed<br/>dev-ui-goat"]
     t129["t129<br/>✅ completed<br/>dev-runtime-goat"]
+    t139["t139<br/>✅ completed<br/>dev-ui-goat"]
+    t145["t145<br/>🔄 in_progress<br/>dev-runtime-goat"]
+    t146["t146<br/>🔄 in_progress<br/>dev-build-flash"]
   end
   subgraph W2["Song 2"]
     direction TB
     t3["t3<br/>✅ completed<br/>dev-runtime-flash"]
     t4["t4<br/>✅ completed<br/>dev-tools-flash"]
     t130["t130<br/>✅ completed<br/>dev-build-flash"]
+    t142["t142<br/>✅ completed<br/>dev-ui-goat"]
   end
   subgraph W3["Song 3"]
     direction TB
@@ -46,6 +53,7 @@ flowchart LR
     t20["t20<br/>✅ completed<br/>nghien-cuu"]
     t131["t131<br/>✅ completed<br/>audit-goat"]
     t132["t132<br/>✅ completed<br/>kiem-thu-goat"]
+    t143["t143<br/>✅ completed<br/>dev-build-flash"]
   end
   subgraph W4["Song 4"]
     direction TB
@@ -77,7 +85,7 @@ flowchart LR
     t13["t13<br/>✅ completed<br/>dev-ui-goat"]
     t23["t23<br/>✅ completed<br/>dev-build-flash"]
     t24["t24<br/>✅ completed<br/>kiem-thu-goat"]
-    t138["t138<br/>⬜ claimed<br/>kiem-thu-goat"]
+    t138["t138<br/>✅ completed<br/>kiem-thu-goat"]
   end
   subgraph W9["Song 9"]
     direction TB
@@ -438,6 +446,10 @@ flowchart LR
   t134 --> t135
   t135 --> t136
   t136 --> t137
+  t139 --> t142
+  t142 --> t143
+  t144 --> t145
+  t144 --> t146
   t3 -.->|rework| t14
   t4 -.->|follow-up| t15
   t4 -.->|rework| t16
@@ -588,6 +600,7 @@ flowchart LR
   t135 -.->|proof| t136
   t136 -.->|repair| t137
   t137 -.->|follow-up| t138
+  t128 -.->|repair| t139
 ```
 
 ## 2. Bang theo song (thu tu thi cong)
@@ -598,14 +611,21 @@ flowchart LR
 | 0 | t9 | ✅ completed | dev-tools-flash | — | — |
 | 0 | t57 | ✅ completed | dev-ui-goat | — | — |
 | 0 | t128 | ✅ completed | dev-ui-goat | — | — |
+| 0 | t140 | ✅ completed | dev-build-flash | — | — |
+| 0 | t141 | ❌ failed | audit-goat | — | — |
+| 0 | t144 | ✅ completed | audit-goat | — | — |
 | 1 | t2 | ✅ completed | nghien-cuu | t1 | — |
 | 1 | t5 | ✅ completed | kiem-thu | t1 | — |
 | 1 | t22 | ✅ completed | dev-tools-flash | t9 | — |
 | 1 | t60 | ✅ completed | dev-ui-goat | — | t57 (sequence) |
 | 1 | t129 | ✅ completed | dev-runtime-goat | t128 | t128 (follow-up) |
+| 1 | t139 | ✅ completed | dev-ui-goat | — | t128 (repair) |
+| 1 | t145 | 🔄 in_progress | dev-runtime-goat | t144 | — |
+| 1 | t146 | 🔄 in_progress | dev-build-flash | t144 | — |
 | 2 | t3 | ✅ completed | dev-runtime-flash | t2 | — |
 | 2 | t4 | ✅ completed | dev-tools-flash | t2 | — |
 | 2 | t130 | ✅ completed | dev-build-flash | t129 | t129 (pack) |
+| 2 | t142 | ✅ completed | dev-ui-goat | t139 | — |
 | 3 | t6 | ✅ completed | audit-kimi | t3, t4 | — |
 | 3 | t10 | ✅ completed | dev-ui-goat | t4, t9 | t22 (rework) |
 | 3 | t14 | ✅ completed | dev-runtime-flash | — | t3 (rework) |
@@ -614,6 +634,7 @@ flowchart LR
 | 3 | t20 | ✅ completed | nghien-cuu | t3, t4 | — |
 | 3 | t131 | ✅ completed | audit-goat | t130 | t130 (proof) |
 | 3 | t132 | ✅ completed | kiem-thu-goat | t130 | t130 (verification) |
+| 3 | t143 | ✅ completed | dev-build-flash | t142 | — |
 | 4 | t7 | ✅ completed | nghien-cuu | t6 | — |
 | 4 | t8 | ✅ completed | dev-tools-flash | t6 | — |
 | 4 | t17 | ✅ completed | dev-runtime-flash | — | t15 (follow-up) |
@@ -630,7 +651,7 @@ flowchart LR
 | 8 | t13 | ✅ completed | dev-ui-goat | t12 | — |
 | 8 | t23 | ✅ completed | dev-build-flash | t12 | — |
 | 8 | t24 | ✅ completed | kiem-thu-goat | t12 | — |
-| 8 | t138 | ⬜ claimed | kiem-thu-goat | — | t137 (follow-up) |
+| 8 | t138 | ✅ completed | kiem-thu-goat | — | t137 (follow-up) |
 | 9 | t25 | ✅ completed | dev-ui-goat | t13 | — |
 | 10 | t26 | ✅ completed | audit-goat | t23, t25 | — |
 | 11 | t27 | ✅ completed | kiem-thu-goat | t26 | t26 (follow-up) |
