@@ -117,6 +117,21 @@ Khác vòng 20 **đúng 1 tệp**: `lib/client.js.map` `1f1d1552…` → `502436
 **Giới hạn đã biết của vòng 15 (V15-F5, audit t105)** — đọc và ghi CỐ Ý bất đối xứng: chiều ĐỌC chỉ kiểm HÌNH DẠNG provenance (`lib/state.js` `PROVENANCE_SOURCE_PATTERN = /^[a-z][a-z0-9:_-]{0,63}$/u`, tối đa 64 ký tự), chiều GHI chỉ nhận đúng 3 giá trị `captain|http|profile` (`lib/members.js` `PROVENANCE_SOURCES`). Hệ quả: `source` là TOKEN MÔ TẢ, không phải khoá tin cậy; `by`/`at` không được kiểm; `tools/erp-route-migrate.mjs` hard-code `profile`. **Cập nhật sau t107**: trên `team.json` ERP thật hiện **0/14 member có `routeOverride`** — thứ từng bị payload làm rơi là `runtimeSetup` (persona 4 073 ký tự + `toolFilter` deny 10 tool) và `joinedAt`, nay đã hiện trong `status` qua `removed_members` (BUG-027).
 Các tarball cũ **KHÔNG dùng**: t100 (`d7a8bce4…`/2 245 210 B — trước BUG-026 cả hai nửa), t104 (`771298f3…`/2 246 406 B — trước bản vá cổng t98 của t110), t108 (`0cb3fdfe…`/2 247 534 B — trước V17-F4 `active`→`present`), t29 (`ac84c73a…`), t35 (`c3e3e88a…`), t41/t42 (`1fe4fc5f…`, lệch nguồn), t52 (`5306f31b…bfb7`, thiếu bản vá CSS t67), t68 (`03bed22f…f99e`, thiếu D1 của t71), t72 (`5137df03…c8ac`, trước t74/t77) **và t75 (`818dff22…a304`, lệch `lib/types/snapshot.d.ts` do t77)** — cùng tên tệp nên luôn kiểm sha256 trước khi cài.
 
+
+### 2.4.1 Cài vào DSH Desktop và chạy thử (2026-11-01, m07292)
+
+| Việc | Kết quả đo được |
+| --- | --- |
+| Cài vào profile `desktop` | dependency → `file:E:/Project/Agent-Team/dist/vong-21/…tgz`; giải nén vào `node_modules/@nami/dsh-agent-teams`; sao lưu `package.json.bak-before-vong21-20261101` |
+| Bản cài có đúng byte phát hành | 133 tệp, `0.2.0-dev.0`, `isSymlink=false`, 13/13 tệp đóng băng khớp sha+bytes, 133/133 byte-identical với profile đã audit `agent-teams-pack20` |
+| Boot headless `--profile desktop` | BỊ CHẶN: `error: profile "desktop" is managed exclusively by the Electron application` ⇒ phép thử chạy trên profile sao `agent-teams-desk21` |
+| Boot trên bản copy `team.json` ERP | exit 0, 30 080 ms, session `session-e29be463-…`; render `Members (7 present + 7 removed):` · `Removed (7):` · `Tasks (107):` |
+| Đổi route `qa-do-2` | bền vào `team.json` với `routeOverride {source: captain}`; audit `durable-only`; ERP gốc không đổi `9f7420b6a1af1f4e…` / 1 533 117 B |
+| Chứng minh nửa "phiên đang chạy" | `tests/t18-hot-switch-e2e.mjs` (LIVE) báo FAIL 6/9, nhưng artifact chứng minh SẢN PHẨM ĐÚNG: notice `[model changed: … kimi-k2.7-code … deepseek-v4.1-flash]` seq 19, `request/header` seq 11 cũ → seq 20 mới, task `t1` giữ attempt 1 và `completed` |
+
+Nguyên nhân sáu ca trượt là **bộ kiểm**, không phải sản phẩm: prompt của suite không cấm archive nên model tự gọi thêm `agent_teams_delete`, `.agent-teams/e2e-hotswitch/team.json` biến mất trước analysis; từ đó `memberRecord`/`team` = undefined và `findTranscript(memberRecord.id)` không bao giờ chạy. Đã mở **t138** vá đúng ba lỗ (fallback đọc bản archive + member id độc lập + thiếu transcript phải FAIL nêu đường dẫn) mà không nới kỳ vọng nào. Chi tiết: `docs/kiem-thu/desktop-vong-21.md`.
+
+**Còn phải làm ở phía người dùng:** khởi động lại app DeepSeek Harness để cửa sổ GUI nạp plugin mới; dependency cũ `@nanmicoder/dsh-agent-teams@0.1.28` vẫn nằm trong `package.json` của profile `desktop` (không nằm trong bundles nên không được nạp) — nếu sau restart thấy tool trùng tên thì xoá nó.
 ## 3. Cài đặt
 
 ~~~
@@ -181,9 +196,9 @@ Mười hai suite dưới đây **chạy lại trong t60**, mỗi dòng là `nod
 Audit mã nguồn vòng 5 (`docs/audit/closure-vong-5.md`, t42): verdict **ĐẠT cho MÃ NGUỒN**, 0 phát hiện blocker/high/medium. Audit vòng 6–9 (`closure-vong-6.md` t61, `closure-vong-7.md` t69, `closure-vong-8.md` t73, `closure-vong-9.md` t76) đều chốt tarball cua vòng đó rồi bị thay ở vòng sau. **Audit vòng 10 (`docs/audit/closure-vong-10.md`, t79) chốt: TARBALL t78 PHÁT HÀNH ĐƯỢC** — 12/12 ba chiều SAME, quét cả 133 tệp payload ↔ nguồn 0 lệch (đóng V9-F1), 4 mutation riêng của audit đều đỏ rồi phục hồi byte-identical, 42/42 suite EXIT 0 (số của vòng 10), ERP `9f7420b6…`/1 533 117 B không đổi; finding còn lại chỉ là tài liệu (V10-F1 high) và đã sửa trong cùng lượt. **Audit vòng 11 (`docs/audit/closure-vong-11.md`, t85) chốt: TARBALL t84 PHÁT HÀNH ĐƯỢC** — 12/12 ba chiều SAME và quét cả 133 tệp payload ↔ nguồn 0 lệch, 3 mutation riêng của audit (sửa hằng số trong doc-comment `=200`→`=201`, xoá `interface MemberProfileChangeResult`, revert call-site `tools.js:553`) đều đỏ rồi phục hồi byte-identical, 44/44 suite EXIT 0, ERP không đổi; V11-F1 (tài liệu) sửa trong cùng lượt. Vòng 11 có vì **một BUG THẬT**: t86 vá nhánh spawn bỏ qua `routeOverride`, chứng minh bằng t82 đảo FAIL→PASS (C3) trên CÙNG bộ chấm. **Audit vòng 12 (`docs/audit/closure-vong-12.md`, t89) CHỐT: TARBALL t88 PHÁT HÀNH ĐƯỢC** — quét 133/133 tệp payload = nguồn 0 lệch, 4 mutation kiểu mới đều đỏ rồi phục hồi byte-identical, 47 suite → 46 EXIT 0, ERP không đổi; điều kiện: `lib/**` hoặc payload đổi sau 2026-10-31T21:53:17Z thì verdict vô hiệu.
 **Audit vòng 15 (`docs/audit/closure-vong-15.md`, t105) chốt: TARBALL t104 PHÁT HÀNH ĐƯỢC** — 131 tệp payload = nguồn (0 diff/0 notInSource), 12/12 ba chiều với `agent-teams-pack15`, 4 mutation kiểu mới (M1 regex provenance `{0,63}`→`{0,64}` Δ0 B ⇒ t102 case b3 65 ký tự đỏ; M2 thêm `'erp'` vào `PROVENANCE_SOURCES` +7 B ⇒ t103 5 case đỏ; M3 hoán vị danh sách ⇒ t103 5 case; M4b `'captain'`→`'http'` −3 B ⇒ t103 case c1), 57/58 suite EXIT 0, ERP không đổi. *(Audit vòng 14 (t101) đã chốt tarball t100 nhưng verdict đó HẾT hiệu lực khi t102/t103 đổi `lib/**`.)*
 
-Số liệu hồ sơ: TODO **137 hàng task**
-`tasks=137 realEdges=123 derivedEdges=149 waves=54 problems=0` (problem duy nhất trước đó — t107 completed dưới cha `t106` còn `failed` — đã về 0 sau khi t106 chạy lại attempt 2 và PASS)
-Telegram: `docs/bao-cao-telegram/` có **44 kỳ**, **cả 44 tệp ghi message id gửi thật** (`message_id` hoặc `messageId`) (ky-44=55, ky-43=54, ky-42=53, ky-41=52, ky-40=51, ky-39=50, ky-38=49, ky-37=48, ky-36=47, ky-01=5, ky-02=6, ky-03=7, ky-04=9, ky-05=11, ky-06=13, ky-07=15, ky-08=17, ky-09=19, ky-10=20, ky-11=21, ky-12=22, ky-13=23, ky-14=24, ky-15=25, ky-16=26, ky-17=27, ky-18=28, ky-19=30, ky-20=31, ky-21=32, ky-22=33, ky-23=34, ky-24=35, ky-25=36, ky-26=37, ky-27=38, ky-28=39, ky-29=40, ky-30=41, ky-31=42, ky-32=43, ky-33=44, ky-34=45, ky-35=46).
+Số liệu hồ sơ: TODO **138 hàng task**
+`tasks=138 realEdges=123 derivedEdges=150 waves=54 problems=0` (problem duy nhất trước đó — t107 completed dưới cha `t106` còn `failed` — đã về 0 sau khi t106 chạy lại attempt 2 và PASS)
+Telegram: `docs/bao-cao-telegram/` có **45 kỳ**, **cả 45 tệp ghi message id gửi thật** (`message_id` hoặc `messageId`) (ky-45=56, ky-44=55, ky-43=54, ky-42=53, ky-41=52, ky-40=51, ky-39=50, ky-38=49, ky-37=48, ky-36=47, ky-01=5, ky-02=6, ky-03=7, ky-04=9, ky-05=11, ky-06=13, ky-07=15, ky-08=17, ky-09=19, ky-10=20, ky-11=21, ky-12=22, ky-13=23, ky-14=24, ky-15=25, ky-16=26, ky-17=27, ky-18=28, ky-19=30, ky-20=31, ky-21=32, ky-22=33, ky-23=34, ky-24=35, ky-25=36, ky-26=37, ky-27=38, ky-28=39, ky-29=40, ky-30=41, ky-31=42, ky-32=43, ky-33=44, ky-34=45, ky-35=46).
 
 ### 4.2 Kiểm tra đường dẫn (chống tái diễn)
 
@@ -198,7 +213,7 @@ $ node tools/check-doc-paths.mjs --summary
 SUMMARY files=5 paths=96 paths_missing=0 links=41 links_missing=0
 EXIT 0
 ~~~
-(số đo t117/t120/t136: **111 đường dẫn / 41 link** — `check-doc-paths --summary` chạy lại sau t114/t115/t116; bảng chi tiết trong `kiem-tra-duong-dan.md` vẫn là ảnh chụp ngày 2026-10-31 sau t25, chưa làm mới.)
+(số đo t117/t120/t136: **112 đường dẫn / 41 link** — `check-doc-paths --summary` chạy lại sau t114/t115/t116; bảng chi tiết trong `kiem-tra-duong-dan.md` vẫn là ảnh chụp ngày 2026-10-31 sau t25, chưa làm mới.)
 
 ## 5. Giới hạn đã biết (không giấu)
 

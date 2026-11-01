@@ -497,3 +497,17 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | Mutation RIÊNG của captain (B) | `fixture: demonstrated ? warn : [],` → `fixture: [],` (−22 B) trong `tools/sweep-suites.mjs` ⇒ t120 đỏ **a21 + a22**; phục hồi `restored=true` `a9dcea1cbed3ef37` |
 | `tools/sweep-suites.mjs --run --timeout 180000` (chạy NỀN, captain tự chạy) | EXIT 0 · `summary: PASS=55 FAIL=0 LEGACY=12 UNCLASSIFIED=0 skipped(live)=10 WARN=0 WARN_FIXTURE=1 DRIFT=0` — khớp lời khai của member |
 | `tests/tmp/t128/build-copy` | đã xoá; chạy lại t128 ⇒ ca B3 TỰ DỰNG lại ⇒ 17/17 (dọn được, không phụ thuộc artefact cũ) |
+
+## Vòng 21 (phần 2) — bảng đo cài desktop + chạy thử
+
+| Phép đo | Kết quả |
+| --- | --- |
+| Bản cài `desktop/node_modules/@nami/dsh-agent-teams` | 133 tệp, `0.2.0-dev.0`, `isSymlink=false` |
+| 13 tệp đóng băng của bản cài | 13/13 khớp sha256 + bytes |
+| So với profile đã audit `agent-teams-pack20` | 133/133 byte-identical, 0 khác |
+| Boot `--profile desktop` | exit 1 sau 491 ms — `profile "desktop" is managed exclusively by the Electron application` |
+| Boot `agent-teams-desk21` trên bản copy ERP | exit 0, 30 080 ms, 25 549 B JSONL, session `session-e29be463-8449-4da4-ab22-be43182dd0e6` |
+| Render ERP | `Members (7 present + 7 removed):` · `Removed (7):` · `Tasks (107):` |
+| Đổi route `qa-do-2` | audit `durable-only`, `routeOverride` bền vào `team.json`, ERP gốc không đổi (`9f7420b6a1af1f4e…` / 1 533 117 B) |
+| `node tests/t18-hot-switch-e2e.mjs` | verdict FAIL 6/9 — chấm lại bằng tay: sản phẩm ĐÚNG, sáu ca trượt vì team bị archive |
+| Transcript member `cdca2907-44ef-…` | 42 frame, 83 event, 13 step; notice seq 19; header seq 11 `kimi-k2.7-code` → seq 20 `deepseek-v4.1-flash` (high) |

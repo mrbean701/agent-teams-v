@@ -1,7 +1,7 @@
 {
   "$comment": "Derived task relations that the AgentTeams DAG cannot hold retroactively (edit_plan refuses started tasks). Generator tools/dependency-report.mjs merges these with team.json dependencies.",
   "team": "nami-agent-teams",
-  "updatedAt": "2026-11-01T05:10:19.586Z",
+  "updatedAt": "2026-11-01T06:05:00Z",
   "edges": [
     {
       "from": "t3",
@@ -896,6 +896,12 @@
       "to": "t137",
       "kind": "repair",
       "why": "V21-F1/F3/F4/F5 (low): sweep bo sot packages/*/tests, t130-pack ghim map vong 20, build root theo cwd, WARN_FIXTURE chua tai lieu hoa"
+    },
+    {
+      "from": "t137",
+      "to": "t138",
+      "kind": "follow-up",
+      "why": "phep thu cai desktop (m07292) chay LIVE t18: verdict FAIL 6/9 nhung artifact chung minh san pham dung — bo kiem doc team.json da archive + member id lay sau khi chay + khong tim thay transcript"
     }
   ],
   "superseded": {
