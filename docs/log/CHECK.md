@@ -783,3 +783,14 @@ Lần đầu tôi bọc `win_bash` timeout 540 s ⇒ mã trả về **124** (cá
 
 ### 3. Finding mức thấp thì mở MỘT card gộp, đừng mở vòng mới
 5 finding của vòng 21 đều low/info và 4 trong số đó nằm ngoài bộ byte ship (`tools/`, `tests/`, `build/`, docs). Mở vòng mới sẽ vô hiệu verdict vừa đạt; đúng là một card `t137` với outOfScope chặn `lib/**` + `package.json`, nên verdict vòng 21 vẫn nguyên hiệu lực trong lúc vá.
+
+## Vòng 21 (phần 3) — chấm t137 + sửa 12 hàng bảng hỏng âm thầm
+
+### 1. Hàng bảng do script dựng lại phải normalize khoảng trắng
+Khi vá 12 hàng `docs/TODO.md` có dấu `|` thô, tôi ghép ô bằng `join('|')` ⇒ hàng thành `| t125|VERIFIED|…`. Markdown VẪN render đúng, nhưng mọi checker nội bộ (dùng `split(' | ')`) đọc ra 1 ô ⇒ lần kiểm ngay sau đó báo sai. Luật: mọi hàng do máy dựng lại phải ghép bằng `' | '` và bọc `'| ' + … + ' |'`, rồi kiểm lại bằng CHÍNH checker sẽ dùng về sau.
+
+### 2. Đếm cột phải đếm dấu `|` CHƯA escape
+`split('|')` trên hàng có `\|` vẫn tách ⇒ 12 hàng cũ (t31, t42, t51, t55, t71, t74, t78, t98, t99, t100, t103, t125) mang dấu `|` thô trong ô đã nằm im qua nhiều vòng kiểm, vì checker cũ đếm theo `split(' | ')` (dấu thô thường dính chữ nên vẫn ra 6 ô). Phép đúng: đếm `(?<!\\)\|` = 7, hoặc parse theo cú pháp markdown. Đã escape cả 12 hàng và kiểm lại: `rows=137 unique=137 badSpacing=0 badPipes=0 maxLen=1967`.
+
+### 3. Chiều mutation còn thiếu: phá CHÍNH bộ kiểm
+Các vòng trước đột biến SẢN PHẨM rồi xem cổng có đỏ. Lượt này đột biến CHÍNH cổng: bỏ đếm WARN fixture trong `tools/sweep-suites.mjs` ⇒ chính `tests/t120` phải đỏ (a21, a22). Nếu cổng không có ca tự-chấm thì một cổng bị làm mù vẫn xanh. Luật: mỗi card cổng phải có ≥1 ca mà đột biến nhắm vào BỘ KIỂM, không chỉ nhắm sản phẩm.

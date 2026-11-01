@@ -482,3 +482,18 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | `packages/dsh-agent-teams/tests/t130-pack.mjs` (plain) | EXIT 1 đúng như audit khai: `DIFF lib/client.js.map [frozen] applies=true shaApplies=false bytesFrozen=404958 bytesActual=404958` + `FAIL  A2 frozen table 13 rows re-measured at run time` |
 | Công bố | `dist/vong-21/nami-dsh-agent-teams-0.2.0-dev.0.tgz` = COPY của artefact đã chấm, `copyIdentical=true`, sha `6db464d1…` / 2 248 091 B |
 | Telegram | kỳ 43 = `docs/bao-cao-telegram/ky-43.md`, gửi thật `messageId 54` |
+
+## Vòng 21 (phần 3) — captain chấm t137 (vá 4 finding low của vòng 21)
+
+| Phép đo (captain tự chạy) | Kết quả |
+|---|---|
+| 6 tệp t137 nộp, hash+bytes | KHỚP 6/6: `tools/sweep-suites.mjs` `a9dcea1cbed3ef37…`/41 915 B · `tests/t120-sweep-suites.mjs` `3efe00bd168508c9…`/29 505 B · `t130-pack.mjs` `ba3d37d3c6b9d16b…`/68 372 B · `build/build.mjs` `8c03338cac36f616…`/3 814 B · `tests/t128-panel-order.mjs` `7dd02719d98bf8a5…`/25 237 B · `docs/kiem-thu/t120-sweep-suites.md` `1e11b58eded2f1e4…`/11 299 B |
+| `tests/t120-sweep-suites.mjs` | EXIT 0 · **25/25** (a25 chạy THẬT `sweep --run --only t130-pack --json` ⇒ verdict=LEGACY, ran=false, citation `:395`) |
+| `tools/sweep-suites.mjs --list` | EXIT 0 · **77 suite = 10 LIVE + 67 fast, legacy 12** (trước 72 / 9 LIVE / 9 legacy) |
+| `tests/t128-panel-order.mjs` | EXIT 0 · **17/17**; ca **B3** chép `package.json` + `build/` + `lib/client` vào `tests/tmp/t128/build-copy`, chạy `node <copy>/build/build.mjs` từ GỐC REPO ⇒ bundle `377bcea2…`/258 432 + map `5024364f…`/404 958 TRÙNG BYTE bản ship |
+| Hồi quy | t10 50/50 · t115 43/43 · t114 16/16 · t113 38/38 · t107 13/13 · `t98 --strict` GREEN `allow_listed=7 roster_invariant_problems=0` |
+| 13 tệp đóng băng | **drift 0/13**; `dist/vong-21/…tgz` vẫn `6db464d1…`/2 248 091 B ⇒ verdict vòng 21 còn hiệu lực |
+| Mutation RIÊNG của captain (A) | xoá `absWorkingDir: pkgDir,` trong `build/build.mjs` (−27 B) ⇒ t128 **16/17**, `FAIL B3 — …reproduces the shipped bundle AND the shipped map byte for byte…`; phục hồi `restored=true` `8c03338cac36f616` |
+| Mutation RIÊNG của captain (B) | `fixture: demonstrated ? warn : [],` → `fixture: [],` (−22 B) trong `tools/sweep-suites.mjs` ⇒ t120 đỏ **a21 + a22**; phục hồi `restored=true` `a9dcea1cbed3ef37` |
+| `tools/sweep-suites.mjs --run --timeout 180000` (chạy NỀN, captain tự chạy) | EXIT 0 · `summary: PASS=55 FAIL=0 LEGACY=12 UNCLASSIFIED=0 skipped(live)=10 WARN=0 WARN_FIXTURE=1 DRIFT=0` — khớp lời khai của member |
+| `tests/tmp/t128/build-copy` | đã xoá; chạy lại t128 ⇒ ca B3 TỰ DỰNG lại ⇒ 17/17 (dọn được, không phụ thuộc artefact cũ) |

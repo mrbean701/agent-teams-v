@@ -42,8 +42,19 @@
  * and printed verbatim under "== WARN lines". A suite that exits 0 while announcing that a gate
  * could not run (for example "WARN typescript was not found ... so the declaration compile gate
  * cannot run") is still classified PASS by rule, because the rule only reads the exit code; with
- * --strict that ambiguity is removed: any WARN means NOT green (exit 3). The default stays
- * exactly as before for the 8 LEGACY pack suites.
+ * --strict that ambiguity is removed: any gate WARN means NOT green (exit 3).
+ *
+ * V20-F2 (t134) — a suite can PRINT a WARN without a gate having failed to run: tests/t56-types-fallback.mjs
+ * case d20 exercises BOTH branches of the declaration gate, so its output carries
+ * "FATAL typescript was not found ..." immediately followed by "WARN typescript was not found ...".
+ * Counting that line made every green run of t56 report a warning, and --strict would refuse a green
+ * tree. So the raw set is split by evidence instead of by name: a "WARN " line counts as a GATE
+ * warning only when the suite printed no FATAL/ERROR line in the same run. A suite that prints a hard
+ * severity is demonstrating the severity contract, not reporting a skipped gate. Nothing is hidden:
+ * every raw line is still printed verbatim, tagged [fixture] when excluded, and the two counts are
+ * printed separately (WARN= gate lines, WARN_FIXTURE= demonstrated lines). Only gate lines reach
+ * --strict. Honest limit: if one suite both demonstrates a hard severity and truly skips a gate, its
+ * WARN is not counted — the raw line is still printed, so a reader can still see it.
  *
  * LIVE vs FAST — detected from machine-readable evidence, never from a hard-coded name list.
  * A suite is LIVE when ALL of the following hold in its text:
@@ -58,12 +69,33 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..');
 const DEFAULT_ROOT = join(REPO_ROOT, 'tests');
+const PACKAGES_ROOT = join(REPO_ROOT, 'packages');
+const toPosixRel = (absolute) => relative(REPO_ROOT, absolute).split(sep).join('/');
+/**
+ * V21-F1: the round-21 audit found that a suite living under packages/<pkg>/tests was INVISIBLE to the
+ * sweep, so packages/dsh-agent-teams/tests/t130-pack.mjs could stay red for a whole round without a row
+ * saying so. Every existing packages/<pkg>/tests directory is therefore a scan root of its own, and the
+ * roots that were scanned (or skipped, with the reason) are printed on every invocation.
+ */
+function discoverPackageTestRoots() {
+    let entries;
+    try {
+        entries = readdirSync(PACKAGES_ROOT, { withFileTypes: true });
+    } catch (error) {
+        return [];
+    }
+    return entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => join(PACKAGES_ROOT, entry.name, 'tests'))
+        .filter((dir) => existsSync(dir))
+        .sort((a, b) => a.localeCompare(b, 'en'));
+}
 const DEFAULT_TIMEOUT_MS = 120000;
 
 const EXIT_GREEN = 0;
@@ -92,6 +124,8 @@ const FROZEN_FILES = [
 const DEFAULT_FROZEN_ROOT = join(REPO_ROOT, 'packages', 'dsh-agent-teams');
 /** A suite that announces a gate could not run prints exactly this prefix. */
 const WARN_RE = /^WARN /u;
+/** A hard severity: no green run carries one, so a suite that prints it is demonstrating the contract. */
+const HARD_SEVERITY_RE = /^(?:FATAL|ERROR) /u;
 
 /** Embedded exceptions: artefacts of history that stay red by design. Overridden by --exceptions. */
 const DEFAULT_EXCEPTIONS = [
@@ -103,6 +137,17 @@ const DEFAULT_EXCEPTIONS = [
     {"suite":"t100-pack.mjs","args":[],"reason":"historical pack round: pins FROZEN lib/tools.js = 5deb03ca93b2a8e9 (round-14 table), so it is red against today source by design","citation":"tests/t100-pack.mjs:57","fix":"round-14 artefact; verify the shipped artefact with tests/t118-pack.mjs instead of re-running this round"},
     {"suite":"t104-pack.mjs","args":[],"reason":"historical pack round: pins FROZEN lib/tools.js = 5deb03ca93b2a8e9 (round-15 table), so it is red against today source by design","citation":"tests/t104-pack.mjs:58","fix":"round-15 artefact; verify the shipped artefact with tests/t118-pack.mjs instead of re-running this round"},
     {"suite":"t108-pack.mjs","args":[],"reason":"historical pack round: pins FROZEN lib/tools.js = d402c6586df1e140 (round-17 table), so it is red against today source by design","citation":"tests/t108-pack.mjs:59","fix":"round-17 artefact; verify the shipped artefact with tests/t118-pack.mjs instead of re-running this round"},
+    {"suite":"t118-pack.mjs","args":[],"reason":"historical pack round: its FROZEN table and FROZEN_TARBALL pin the round-18 artefact (lib/client.js.map 1f1d1552, tarball 1bb0ef1f), so it is red against today source by design (V20-F3)","citation":"tests/t118-pack.mjs:49","fix":"round-18 artefact; the current round is checked by packages/dsh-agent-teams/tests/t130-pack.mjs (and by the next round suite); keep this one only to reproduce the round-18 tarball on a machine that still has profile agent-teams-pack17"},
+    // V21-F1: the suites below live INSIDE the package (packages/dsh-agent-teams/tests) and were
+    // therefore invisible to the sweep until this round. The three pack suites pin the bytes of their own
+    // round, so they are red against today source by design; the round-21 suite is the one that stays green.
+    {"suite":"t111-pack.mjs","args":[],"reason":"historical pack round: pins the round-18 bytes (lib/client.js.map bbf88608f54e966f, tarball 1bb0ef1f), so it is red against today source by design (V21-F1)","citation":"packages/dsh-agent-teams/tests/t111-pack.mjs:79","fix":"round-18 artefact; superseded by packages/dsh-agent-teams/tests/t135-pack.mjs (round 21); keep it to reproduce the round-18 tarball and do NOT re-pin it"},
+    {"suite":"t121-pack.mjs","args":[],"reason":"historical pack round: pins the round-19 bytes (lib/client.js.map bbf88608f54e966f, tarball 2770fbfc), so it is red against today source by design (V21-F1)","citation":"packages/dsh-agent-teams/tests/t121-pack.mjs:380","fix":"round-19 artefact; superseded by packages/dsh-agent-teams/tests/t135-pack.mjs (round 21); do NOT re-pin it"},
+    {"suite":"t130-pack.mjs","args":[],"reason":"historical pack round: pins the round-20 byte set (lib/client.js.map 1f1d1552, tarball d34be2af), so it is red against today source by design (V21-F1). Why LEGACY was chosen over re-pinning, and why re-pinning would be a lie, is written in the file itself","citation":"packages/dsh-agent-teams/tests/t130-pack.mjs:395","fix":"round-20 artefact; superseded by packages/dsh-agent-teams/tests/t135-pack.mjs (round 21). A re-pin would claim that round-20 bytes carry the round-21 map, and its A7 three-way check would still compare against the round-20 install (agent-teams-pack19), turning a red by design into a false green claim"},
+    // Not an artefact of history: the CURRENT round-21 suite packs twice and boots a real headless
+    // session, so a sweep must not spend quota on it by accident. Grouped live = still listed, still in
+    // the table, skipped by default; a direct run or --include-live still executes it.
+    {"suite":"t135-pack.mjs","args":[],"group":"live","reason":"current round (21) release suite: a plain run executes npm pack twice AND boots a real headless session, so it must not be swept silently; grouping it live keeps it visible in the table but skipped unless asked (V21-F1)","citation":"packages/dsh-agent-teams/tests/t135-pack.mjs:206","fix":"run it directly (node packages/dsh-agent-teams/tests/t135-pack.mjs --fresh) or pass --include-live; it must never be reclassified LEGACY while round 21 is the released set"},
 ];
 
 const LIVE_SIGNALS = [
@@ -155,7 +200,30 @@ function discoverSuites(root) {
     const names = readdirSync(root)
         .filter((name) => SUITE_RE.test(name))
         .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
-    return names.map((name) => ({ name, file: join(root, name), origin: 'scan' }));
+    return names.map((name) => ({ name, file: join(root, name), origin: 'scan', root }));
+}
+
+/**
+ * Merge per-root discoveries. A basename that exists in two roots is NEVER merged away: both rows stay,
+ * and both are renamed to their repo-relative path so --only and the exceptions list still address them.
+ */
+function mergeDiscoveries(perRoot) {
+    const byName = new Map();
+    const entries = [];
+    const duplicates = [];
+    for (const entry of perRoot) {
+        const first = byName.get(entry.name);
+        if (first === undefined) {
+            byName.set(entry.name, entry);
+            entries.push(entry);
+            continue;
+        }
+        if (first.name === basename(first.file)) first.name = toPosixRel(first.file);
+        entry.name = toPosixRel(entry.file);
+        entries.push(entry);
+        duplicates.push(entry.name);
+    }
+    return { entries, duplicates };
 }
 
 function readManifest(path, root) {
@@ -201,6 +269,8 @@ function parseArgs(argv) {
         json: false,
         strict: false,
         root: DEFAULT_ROOT,
+        rootExplicit: false,
+        extraRoots: [],
         frozenRoot: DEFAULT_FROZEN_ROOT,
         frozenRootExplicit: false,
         only: [],
@@ -218,11 +288,12 @@ function parseArgs(argv) {
         if (arg === '--json') { opts.json = true; continue; }
         if (arg === '--strict') { opts.strict = true; continue; }
         if (arg === '--help' || arg === '-h') { opts.help = true; continue; }
-        if (arg === '--root' || arg === '--only' || arg === '--timeout' || arg === '--exceptions' || arg === '--manifest' || arg === '--frozen-root') {
+        if (arg === '--root' || arg === '--extra-root' || arg === '--only' || arg === '--timeout' || arg === '--exceptions' || arg === '--manifest' || arg === '--frozen-root') {
             const value = argv[i + 1];
             if (value === undefined || value.startsWith('--')) return { error: 'missing value for ' + arg };
             i += 1;
-            if (arg === '--root') opts.root = resolve(REPO_ROOT, value);
+            if (arg === '--root') { opts.root = resolve(REPO_ROOT, value); opts.rootExplicit = true; }
+            else if (arg === '--extra-root') opts.extraRoots.push(resolve(REPO_ROOT, value));
             else if (arg === '--frozen-root') { opts.frozenRoot = resolve(REPO_ROOT, value); opts.frozenRootExplicit = true; }
             else if (arg === '--only') opts.only = value.split(',').map((part) => part.trim()).filter((part) => part.length > 0);
             else if (arg === '--timeout') {
@@ -240,6 +311,27 @@ function parseArgs(argv) {
     return opts;
 }
 
+/**
+ * V20-F2: split the severity lines a suite printed into GATE warnings and fixture demonstrations.
+ * Returns { gate, fixture, hard, demonstrated, all } — gate is what --strict and the counters use.
+ */
+function classifySeverity(text) {
+    const lines = String(text ?? '')
+        .split(/\r?\n/u)
+        .map((line) => line.trimEnd())
+        .filter((line) => line.length > 0);
+    const warn = lines.filter((line) => WARN_RE.test(line));
+    const hard = lines.filter((line) => HARD_SEVERITY_RE.test(line));
+    const demonstrated = hard.length > 0;
+    return {
+        gate: demonstrated ? [] : warn,
+        fixture: demonstrated ? warn : [],
+        hard,
+        demonstrated,
+        all: lines.filter((line) => WARN_RE.test(line) || HARD_SEVERITY_RE.test(line)),
+    };
+}
+
 function runSuite(row, timeoutMs) {
     const started = Date.now();
     const result = spawnSync(process.execPath, [row.file, ...row.args], {
@@ -255,18 +347,19 @@ function runSuite(row, timeoutMs) {
     const stderr = result.stderr ?? '';
     const merged = (stdout + '\n' + stderr).trim();
     const sessions = new Set((merged.match(/session-[0-9a-f]{8}/gu) ?? []).map((id) => id));
-    // V19-F7: a suite that says a gate could not run must not disappear into "exit 0".
-    const warnings = merged
-        .split(/\r?\n/)
-        .map((line) => line.trimEnd())
-        .filter((line) => WARN_RE.test(line));
+    // V19-F7 + V20-F2: a suite that says a gate could not run must not disappear into "exit 0",
+    // but a suite that PRINTS the severity contract as a fixture must not be counted as a gate.
+    const severity = classifySeverity(merged);
     return {
         exitCode: result.status === null ? null : result.status,
         signal: result.signal ?? null,
         timedOut: timedOut || (result.status === null && result.signal !== null && result.signal !== undefined),
         elapsedMs,
         sessions: [...sessions],
-        warnings,
+        warnings: severity.gate,
+        fixtureWarnings: severity.fixture,
+        severityDemonstrated: severity.demonstrated,
+        hardSeverityLines: severity.hard,
         tail: tailLines(merged, 3),
     };
 }
@@ -352,8 +445,36 @@ function main(argv) {
     }
 
     let discovered;
+    let scanRoots;
+    let duplicates = [];
     try {
-        discovered = opts.manifestPath === undefined ? discoverSuites(opts.root) : readManifest(opts.manifestPath, opts.root);
+        if (opts.manifestPath !== undefined) {
+            discovered = readManifest(opts.manifestPath, opts.root);
+            console.log('scan roots: manifest mode — ' + toPosixRel(opts.manifestPath) + ' names every suite, so no directory is scanned');
+        } else {
+            // An explicit --root replaces the whole list (fixture runs must stay deterministic); the default
+            // list is the repo tests directory PLUS every packages/<pkg>/tests directory (V21-F1).
+            scanRoots = opts.rootExplicit === true
+                ? [opts.root, ...opts.extraRoots]
+                : [...new Set([opts.root, ...discoverPackageTestRoots(), ...opts.extraRoots])];
+            const perRoot = [];
+            for (const dir of scanRoots) {
+                if (!existsSync(dir)) continue;
+                perRoot.push(...discoverSuites(dir));
+            }
+            const merged = mergeDiscoveries(perRoot);
+            discovered = merged.entries;
+            duplicates = merged.duplicates;
+            console.log('scan roots (' + scanRoots.length + '): ' + scanRoots
+                .map((dir) => toPosixRel(dir) + (existsSync(dir) ? '' : ' [MISSING: skipped, reported not silent]'))
+                .join(' + '));
+            const skipped = scanRoots.filter((dir) => !existsSync(dir));
+            if (skipped.length > 0) {
+                console.log('scan roots SKIPPED (' + skipped.length + '): ' + skipped.map(toPosixRel).join(', ')
+                    + ' — a directory that does not exist cannot contribute a suite, and saying so is not the same as assuming it is empty');
+            }
+            if (duplicates.length > 0) console.log('duplicate suite basenames kept apart by repo-relative path: ' + duplicates.join(', '));
+        }
     } catch (error) {
         console.error('sweep-suites: cannot read the suite list: ' + String(error.message ?? error));
         return EXIT_TOOL_BROKEN;
@@ -416,7 +537,7 @@ function printList(rows, opts, exceptions) {
     const live = rows.filter((row) => row.group === 'live');
     const fast = rows.filter((row) => row.group === 'fast');
     console.log('== suites under ' + (opts.manifestPath ?? opts.root) + ' (--list, nothing was executed) ==');
-    console.log(pad('suite', 42) + pad('group', 8) + pad('legacy', 8) + 'signals');
+    console.log(pad('suite', 52) + pad('group', 8) + pad('legacy', 8) + 'signals');
     for (const row of rows) {
         row.verdict = row.legacy ? 'LEGACY' : row.group === 'live' ? 'SKIPPED-LIVE' : 'SKIPPED-LEGACY';
         console.log(pad(row.name, 42) + pad(row.group, 8) + pad(row.legacy ? 'LEGACY' : '-', 8) + (row.signals.join(',') || '-') + (row.override ? ' [override]' : '') + (row.exists ? '' : ' [MISSING]'));
@@ -428,7 +549,7 @@ function printList(rows, opts, exceptions) {
         console.log('they boot a real session and spend quota: skipped unless --include-live');
     }
     console.log('exceptions source: ' + exceptions.origin);
-    if (opts.json) console.log(JSON.stringify({ mode: 'list', rows: rows.map((row) => ({ suite: row.name, group: row.group, legacy: row.legacy, signals: row.signals, exists: row.exists, ran: false, verdict: row.verdict })), exitCode: EXIT_GREEN }, null, 1));
+    if (opts.json) console.log(JSON.stringify({ mode: 'list', roots: (opts.manifestPath !== undefined ? [] : (opts.rootExplicit === true ? [opts.root, ...opts.extraRoots] : [opts.root, ...discoverPackageTestRoots(), ...opts.extraRoots])).map(toPosixRel), rows: rows.map((row) => ({ suite: row.name, file: toPosixRel(row.file), group: row.group, legacy: row.legacy, signals: row.signals, exists: row.exists, ran: false, verdict: row.verdict })), exitCode: EXIT_GREEN }, null, 1));
     return EXIT_GREEN;
 }
 
@@ -479,6 +600,9 @@ function runAll(rows, opts, exceptions) {
         row.elapsedMs = outcome.elapsedMs;
         row.sessions = outcome.sessions;
         row.warnings = outcome.warnings;
+        row.fixtureWarnings = outcome.fixtureWarnings;
+        row.severityDemonstrated = outcome.severityDemonstrated;
+        row.hardSeverityLines = outcome.hardSeverityLines;
         boots += outcome.sessions.length;
         if (row.drift.length > 0) {
             const what = 'frozen source was WRITTEN while this suite ran: ' + row.drift.map(driftText).join(' ; ');
@@ -528,15 +652,24 @@ function runAll(rows, opts, exceptions) {
     }
     console.log('frozen sampling: ' + samples + '/' + rows.filter((row) => row.ran).length + ' executed suite(s) sampled around the run · drift suites=' + drifted.length);
 
-    // ---- WARN lines (V19-F7): a gate that announced it could not run must be visible
+    // ---- WARN lines (V19-F7 + V20-F2): a gate that announced it could not run must be visible, and
+    // a suite that merely PRINTED the severity contract must not be counted as one.
     const warned = rows.filter((row) => (row.warnings ?? []).length > 0);
+    const fixtureWarned = rows.filter((row) => (row.fixtureWarnings ?? []).length > 0);
     const warnTotal = warned.reduce((sum, row) => sum + row.warnings.length, 0);
-    console.log('warnings: ' + warnTotal + ' WARN line(s) in ' + warned.length + ' suite(s)' + (opts.strict ? ' (--strict: any WARN is NOT green)' : ' (default: WARN is printed, the exit code still follows the suite code)'));
-    if (warned.length > 0) {
-        console.log('== WARN lines (' + warnTotal + ') — verbatim, never silently dropped ==');
-        for (const row of warned) {
-            console.log('- ' + row.name + ' warnCount=' + row.warnings.length);
-            for (const line of row.warnings) console.log('    | ' + line);
+    const fixtureWarnTotal = fixtureWarned.reduce((sum, row) => sum + row.fixtureWarnings.length, 0);
+    console.log('warnings: ' + warnTotal + ' gate WARN line(s) in ' + warned.length + ' suite(s)' + (opts.strict ? ' (--strict: any gate WARN is NOT green)' : ' (default: WARN is printed, the exit code still follows the suite code)'));
+    console.log('fixture warnings: ' + fixtureWarnTotal + ' WARN line(s) in ' + fixtureWarned.length + ' suite(s) — that suite also printed a FATAL/ERROR line, so it demonstrates the severity contract instead of reporting a skipped gate (V20-F2)');
+    if (warned.length + fixtureWarned.length > 0) {
+        console.log('== WARN lines (' + warnTotal + ' gate + ' + fixtureWarnTotal + ' fixture) — verbatim, never silently dropped ==');
+        for (const row of rows) {
+            const gate = row.warnings ?? [];
+            const fixture = row.fixtureWarnings ?? [];
+            if (gate.length + fixture.length === 0) continue;
+            console.log('- ' + row.name + ' gateWarn=' + gate.length + ' fixtureWarn=' + fixture.length
+                + (row.severityDemonstrated === true ? ' (printed ' + (row.hardSeverityLines ?? []).length + ' FATAL/ERROR line(s) in the same run)' : ''));
+            for (const line of gate) console.log('    [gate]    | ' + line);
+            for (const line of fixture) console.log('    [fixture] | ' + line);
         }
         console.log('');
     }
@@ -563,12 +696,13 @@ function runAll(rows, opts, exceptions) {
         UNCLASSIFIED: rows.filter((row) => row.verdict === 'UNCLASSIFIED').length,
         SKIPPED: rows.filter((row) => row.verdict === 'SKIPPED-LIVE').length,
         WARN: warnTotal,
+        WARN_FIXTURE: fixtureWarnTotal,
         DRIFT: drifted.length,
     };
-    console.log('summary: PASS=' + counts.PASS + ' FAIL=' + counts.FAIL + ' LEGACY=' + counts.LEGACY + ' UNCLASSIFIED=' + counts.UNCLASSIFIED + ' skipped(live)=' + counts.SKIPPED + ' WARN=' + counts.WARN + ' DRIFT=' + counts.DRIFT);
+    console.log('summary: PASS=' + counts.PASS + ' FAIL=' + counts.FAIL + ' LEGACY=' + counts.LEGACY + ' UNCLASSIFIED=' + counts.UNCLASSIFIED + ' skipped(live)=' + counts.SKIPPED + ' WARN=' + counts.WARN + ' WARN_FIXTURE=' + counts.WARN_FIXTURE + ' DRIFT=' + counts.DRIFT);
     console.log('boot sessions executed: ' + boots + (opts.includeLive ? ' (live group was included)' : ' (live group was NOT included)'));
     const exitCode = decideExit(rows, opts);
-    console.log('tool exit code: ' + exitCode + ' (0 = green, 1 = at least one FAIL, 2 = tool broken, 3 = UNCLASSIFIED only or --strict with a WARN line; code 3 is a local extension, still non-zero so never green)');
+    console.log('tool exit code: ' + exitCode + ' (0 = green, 1 = at least one FAIL, 2 = tool broken, 3 = UNCLASSIFIED only or --strict with a gate WARN line; code 3 is a local extension, still non-zero so never green)');
     console.log('exceptions source: ' + exceptions.origin);
     if (opts.json) {
         console.log(JSON.stringify({
@@ -590,6 +724,10 @@ function runAll(rows, opts, exceptions) {
                 elapsedMs: row.elapsedMs,
                 warnCount: (row.warnings ?? []).length,
                 warnings: row.warnings ?? [],
+                fixtureWarnCount: (row.fixtureWarnings ?? []).length,
+                fixtureWarnings: row.fixtureWarnings ?? [],
+                severityDemonstrated: row.severityDemonstrated === true,
+                hardSeverityLines: row.hardSeverityLines ?? [],
                 sampled: row.sampled,
                 drift: row.drift ?? [],
             })),

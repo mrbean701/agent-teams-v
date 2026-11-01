@@ -108,6 +108,15 @@ const FIXTURES = {
         'process.exit(0);',
         '',
     ].join('\n'),
+    // V20-F2: the shape tests/t56-types-fallback.mjs d20 really has — it exercises BOTH branches of
+    // one gate, so its output carries the FATAL line and then the WARN line of the same condition.
+    't120-fake-warn-fixture.mjs': [
+        "console.log('FATAL typescript was not found at packages/dsh-agent-teams/node_modules/typescript, so the declaration compile gate cannot run (set AGENT_TEAMS_ALLOW_NO_TSC=1 only to downgrade this to a warning)');",
+        "console.log('WARN typescript was not found at packages/dsh-agent-teams/node_modules/typescript, so the declaration compile gate cannot run (AGENT_TEAMS_ALLOW_NO_TSC=1: gate SKIPPED as a warning, never a pass)');",
+        "console.log('20/20 cases passed');",
+        'process.exit(0);',
+        '',
+    ].join('\n'),
     // V19-F2: a suite that writes ONE byte into a COPY of the frozen source table while it runs.
     't120-fake-drift.mjs': [
         "import { appendFileSync, existsSync } from 'node:fs';",
@@ -332,32 +341,96 @@ await prepareFixtures();
 }
 // ---------------------------------------------------------------- V19-F7 warnings
 {
-    const plain = runTool([...ROOT_ARGS, ...EXC, '--run', '--timeout', '20000', '--only', 'fake-warn', '--json']);
+    const plain = runTool([...ROOT_ARGS, ...EXC, '--run', '--timeout', '20000', '--only', 'fake-warn.mjs', '--json']);
     const row = rowFor(plain.json, 't120-fake-warn.mjs');
-    const listed = /== WARN lines \(1\)/u.test(plain.out)
-        && plain.out.includes('WARN typescript was not found at packages/dsh-agent-teams/node_modules/typescript, so the declaration compile gate cannot run')
-        && /warnings: 1 WARN line\(s\) in 1 suite/u.test(plain.out);
-    check('a18', 'F7 mac dinh: moi dong ^WARN duoc dem + in nguyen van (warnCount + muc warnings), exit van theo ma suite (0)',
+    const listed = /== WARN lines \(1 gate \+ 0 fixture\)/u.test(plain.out)
+        && plain.out.includes('[gate]    | WARN typescript was not found at packages/dsh-agent-teams/node_modules/typescript, so the declaration compile gate cannot run')
+        && /warnings: 1 gate WARN line\(s\) in 1 suite/u.test(plain.out);
+    check('a18', 'F7/F2 mac dinh: dong ^WARN DON DOC (khong co FATAL/ERROR trong cung luot) duoc dem la WARN cua CONG, in nguyen van voi the [gate], exit van theo ma suite (0)',
         row !== undefined && row.verdict === 'PASS' && row.warnCount === 1 && Array.isArray(row.warnings)
             && row.warnings.length === 1 && /\(typescript\)|typescript was not found/u.test(row.warnings[0]) && listed && plain.code === 0,
         'verdict=' + (row && row.verdict) + ' warnCount=' + (row && row.warnCount) + ' listed=' + listed + ' toolExit=' + plain.code);
 }
 {
-    const strict = runTool([...ROOT_ARGS, ...EXC, '--strict', '--run', '--timeout', '20000', '--only', 'fake-warn', '--json']);
+    const strict = runTool([...ROOT_ARGS, ...EXC, '--strict', '--run', '--timeout', '20000', '--only', 'fake-warn.mjs', '--json']);
     const row = rowFor(strict.json, 't120-fake-warn.mjs');
-    const explained = /--strict: any WARN is NOT green|STRICT/u.test(strict.out);
-    check('a19', 'F7 --strict: co WARN => KHONG xanh (tool exit 3), van in dong WARN + warnCount',
+    const explained = /--strict: any gate WARN is NOT green/u.test(strict.out);
+    check('a19', 'F7 --strict: co WARN cua CONG => KHONG xanh (tool exit 3), van in dong WARN + warnCount',
         row !== undefined && row.warnCount === 1 && strict.code === 3 && explained,
         'warnCount=' + (row && row.warnCount) + ' toolExit=' + strict.code + ' explained=' + explained);
+}
+{
+    // V20-F2: the same WARN text, but the run ALSO printed the FATAL branch of that gate.
+    const paired = runTool([...ROOT_ARGS, ...EXC, '--strict', '--run', '--timeout', '20000', '--only', 'fake-warn-fixture', '--json']);
+    const row = rowFor(paired.json, 't120-fake-warn-fixture.mjs');
+    const listed = /== WARN lines \(0 gate \+ 1 fixture\)/u.test(paired.out)
+        && /\[fixture\] \| WARN typescript was not found/u.test(paired.out)
+        && /warnings: 0 gate WARN line\(s\) in 0 suite/u.test(paired.out);
+    check('a21', 'F2: suite in CA FATAL va WARN (dung hinh cua t56 d20) => dong WARN la [fixture], gateWarn=0, --strict VAN XANH (exit 0)',
+        row !== undefined && row.verdict === 'PASS' && row.warnCount === 0 && row.fixtureWarnCount === 1
+            && row.severityDemonstrated === true && Array.isArray(row.warnings) && row.warnings.length === 0
+            && Array.isArray(row.fixtureWarnings) && row.fixtureWarnings.length === 1 && listed && paired.code === 0,
+        'verdict=' + (row && row.verdict) + ' gateWarn=' + (row && row.warnCount) + ' fixtureWarn=' + (row && row.fixtureWarnCount)
+            + ' demonstrated=' + (row && row.severityDemonstrated) + ' listed=' + listed + ' toolExit=' + paired.code);
+}
+{
+    // V20-F2 on the REAL suite the audit complained about: no --root, so this is the repo itself.
+    const real = runTool(['--run', '--timeout', '60000', '--only', 't56-types-fallback', '--json']);
+    const row = rowFor(real.json, 't56-types-fallback.mjs');
+    const printed = /fixture warnings: 1 WARN line\(s\) in 1 suite/u.test(real.out) && /gateWarn=0 fixtureWarn=1/u.test(real.out);
+    check('a22', 'F2 tren repo that: t56-types-fallback (tu in ca FATAL va WARN) => gateWarn=0, fixtureWarn=1, PASS, tool exit 0',
+        row !== undefined && row.verdict === 'PASS' && row.warnCount === 0 && row.fixtureWarnCount === 1
+            && Array.isArray(row.hardSeverityLines) && row.hardSeverityLines.length >= 1 && printed && real.code === 0,
+        'verdict=' + (row && row.verdict) + ' gateWarn=' + (row && row.warnCount) + ' fixtureWarn=' + (row && row.fixtureWarnCount)
+            + ' hardSeverity=' + JSON.stringify(row && row.hardSeverityLines && row.hardSeverityLines.map((line) => line.slice(0, 24)))
+            + ' printed=' + printed + ' toolExit=' + real.code);
+}
+{
+    // V20-F3: the round-18 pack suite is an artefact of history, so the sweep must not FAIL on it.
+    const run = runTool(['--run', '--timeout', '60000', '--only', 't118-pack', '--json']);
+    const row = rowFor(run.json, 't118-pack.mjs');
+    const cited = /tests\/t118-pack\.mjs:49/u.test(run.out) && /round-18 artefact/u.test(run.out);
+    check('a23', 'F3: tests/t118-pack.mjs nam trong LEGACY kem citation file:dong + ly do => khong chay, khong FAIL, tool exit 0',
+        row !== undefined && row.verdict === 'LEGACY' && row.ran === false && cited && run.code === 0,
+        'verdict=' + (row && row.verdict) + ' ran=' + (row && row.ran) + ' cited=' + cited + ' toolExit=' + run.code);
 }
 {
     const list = runTool(['--list', '--json']);
     const rows = Array.isArray(list.json && list.json.rows) ? list.json.rows : [];
     const legacy = rows.filter((row) => row.legacy === true);
     const reposRun = runTool(['--list']);
-    check('a20', 'F7/F2 khong pha hanh vi cu: danh sach ngoai le mac dinh van dung 8 LEGACY, --list van khong chay gi',
-        legacy.length === 8 && list.code === 0 && /legacy exceptions: 8/u.test(reposRun.out),
+    check('a20', 'F7/F2/V21-F1 khong pha hanh vi cu: danh sach ngoai le mac dinh dung 12 LEGACY (8 pack suite cu + t118-pack tu V20-F3 + t111/t121/t130-pack tu V21-F1), --list van khong chay gi',
+        legacy.length === 12 && list.code === 0 && /legacy exceptions: 12/u.test(reposRun.out),
         'legacyRows=' + legacy.length + ' names=' + legacy.map((row) => row.suite).join(',') + ' listExit=' + list.code);
+}
+
+// ---------------------------------------------------------------- V21-F1 scan roots + a historical round suite
+{
+    // The sweep used to scan tests/ at the repo root ONLY, so every suite living inside the package
+    // (t111-pack, t121-pack, t130-pack, t135-pack) was invisible: it could stay red for a whole round
+    // without a row and without a count. The roots are now discovered and PRINTED, so a shrinking scan
+    // is visible instead of silent.
+    const list = runTool(['--list', '--json']);
+    const rows = Array.isArray(list.json && list.json.rows) ? list.json.rows : [];
+    const roots = Array.isArray(list.json && list.json.roots) ? list.json.roots.map((entry) => String(entry).replace(/\\/gu, '/')) : [];
+    const packRow = rowFor(list.json, 't130-pack.mjs');
+    const packFile = packRow === undefined ? '' : String(packRow.file ?? '').replace(/\\/gu, '/');
+    check('a24', 'V21-F1: --list cong bo moi goc quet (tests + packages/*/tests), liet ke duoc suite nam trong package (t130-pack) va tong suite vuot moc 72 cua vong 21',
+        roots.length === 2 && roots.some((entry) => entry === 'packages/dsh-agent-teams/tests') && roots.includes('tests')
+            && packFile === 'packages/dsh-agent-teams/tests/t130-pack.mjs' && rows.length > 72 && list.code === 0,
+        'roots=' + JSON.stringify(roots) + ' rows=' + rows.length + ' packFile=' + JSON.stringify(packFile));
+}
+{
+    // V21-F1(b): t130-pack.mjs is the suite that PRODUCED the round-20 tarball. Re-pinning it would make it
+    // assert that round-20 bytes carry the round-21 map, so it is classified LEGACY with a file:line citation
+    // instead -- and LEGACY means 'not run', which this case proves by looking for the npm pack side effects.
+    const run = runTool(['--run', '--timeout', '60000', '--only', 't130-pack', '--json']);
+    const row = rowFor(run.json, 't130-pack.mjs');
+    const cited = run.out.includes('packages/dsh-agent-teams/tests/t130-pack.mjs:395')
+        && /round-20 byte set/u.test(run.out) && /npm pack/u.test(run.out) === false;
+    check('a25', 'V21-F1: t130-pack.mjs roi vao LEGACY (khong phai FAIL), ran=false, keo theo citation file:dong va ly do vong 20, tool exit 0',
+        row !== undefined && row.verdict === 'LEGACY' && row.ran === false && cited && run.code === 0,
+        'verdict=' + (row && row.verdict) + ' ran=' + (row && row.ran) + ' cited=' + cited + ' toolExit=' + run.code);
 }
 
 const failed = checks.filter((item) => item.ok !== true);

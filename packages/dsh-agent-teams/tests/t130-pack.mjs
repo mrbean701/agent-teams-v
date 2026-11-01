@@ -372,6 +372,18 @@ function selfMutationProbe(libDir) {
 // Every row is re-measured from disk at run time and compared with this table: a mismatch means
 // another writer touched the tree, which is a STOP condition and never something to paper over.
 const FROZEN_MEASURED_AT = '2026-11-01T03:05:41.902Z';
+// V21-F1 — WHY THIS TABLE STAYS PINNED TO ROUND 20 (option (b): declared LEGACY, not re-pinned).
+// This suite IS the round-20 artefact generator: the table below, FROZEN_TARBALL and the packed .tgz it
+// reads back all describe the bytes released as round 20, whose lib/client.js.map was 1f1d15524bcd3caa.
+// Round 21 (t134) regenerated that map to 5024364fefe8b73e without touching lib/client.js, so:
+//   (a) re-pinning only this row would make the suite CLAIM that round-20 bytes carry the round-21 map,
+//       which is false, and its A7 three-way check would still compare against the round-20 install
+//       (profile agent-teams-pack19) and stay red -- while the released artefact must not be re-packed
+//       or re-installed by a repair card (constraint B6 of t137: no byte of the published set may move);
+//   (b) declaring it LEGACY states the truth: it is red against today source BY DESIGN, it is superseded
+//       by t135-pack.mjs (round 21), and tools/sweep-suites.mjs must classify it as LEGACY, never FAIL.
+// Machine-verified by tests/t120-sweep-suites.mjs a25 and by the LEGACY entry in tools/sweep-suites.mjs
+// (citation points at the lib/client.js.map row below). Do not re-pin this table.
 const FROZEN = {
     'lib/tools.js': { sha16: 'e51734baf4693cd3', bytes: 213715 },
     'lib/members.js': { sha16: '50f558f8b207d874', bytes: 102260 },

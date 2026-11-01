@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>DSH Agent Teams bundle smoke test</title>
+  <style>
+    body { font-family: monospace; margin: 20px; }
+    .ok { color: green; }
+    .err { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Bundle loader smoke test</h1>
+  <pre id="out"></pre>
+  <script>
+    const out = document.getElementById('out');
+    function log(msg, ok) {
+      const el = document.createElement('div');
+      el.textContent = msg;
+      el.className = ok ? 'ok' : 'err';
+      out.appendChild(el);
+    }
+
+    window.__ModuleLoader__ = {
+      load: ({ id, factory }) => {
+        log('ModuleLoader.load called for ' + id, true);
+        const mods = {};
+        function require(name) {
+          if (name === 'react') return { createElement: () => {}, useEffect: () => {}, useState: () => [{}], useSyncExternalStore: () => ({}), useMemo: () => ({}), useRef: () => ({ current: null }) };
+          if (name === 'react/jsx-runtime') return { jsx: () => {}, jsxs: () => {} };
+          if (name === '@deepseek-ai/dsh-client-ui-primitives') return { Card: () => {}, Button: () => {} };
+          return mods[name];
+        }
+        const exports = factory(require);
+        window.__loadedBundle = { id, exports };
+        log('factory returned keys: ' + Object.keys(exports || {}).join(', '), true);
+        log('apply = ' + typeof exports.apply, typeof exports.apply === 'function');
+        log('inject is array = ' + Array.isArray(exports.inject), Array.isArray(exports.inject));
+        log('inject contents: ' + JSON.stringify(exports.inject), Array.isArray(exports.inject));
+      }
+    };
+  </script>
+  <script src="../lib/client.js"></script>
+  <script>
+    const ok = window.__loadedBundle && window.__loadedBundle.id === '@nami/dsh-agent-teams' && typeof window.__loadedBundle.exports.apply === 'function' && Array.isArray(window.__loadedBundle.exports.inject);
+    log('Overall: ' + (ok ? 'PASS' : 'FAIL'), ok);
+  </script>
+</body>
+</html>

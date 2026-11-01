@@ -9,9 +9,16 @@
  * boot-free and reads the real files; the two negative controls run the SAME predicates on
  * copies under tests/tmp/t128 and must go red there.
  *
+ * V20-F1 (t134): M2 used to assert "mappings are untouched", which held only while nobody
+ * regenerated the bundle. The shipped map had been produced from sourcesContent[2] as it stood
+ * BEFORE the two call sites moved, so with the SAME 404 958 bytes and the SAME sources it
+ * pointed 2 columns (DependencyMap) and 148 columns (AddMemberControl) away from the code it
+ * claimed to describe. A byte count or a sha256 cannot see that; decoding the base64 VLQ
+ * segments can. M4 and N3 below do exactly that.
+ *
  * Run from the repo root: node tests/t128-panel-order.mjs
  */
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { cpSync, readFileSync, writeFileSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
@@ -50,6 +57,120 @@ function check(id, name, ok, detail) {
 }
 
 const sha256 = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
+
+// ---------------------------------------------------------------- V20-F1: base64 VLQ decoding
+// The map is JSON, but its meaning lives in "mappings": ';' separates generated lines, ','
+// separates segments, and each segment is a run of base64 VLQ deltas (generated column, source
+// index, source line, source column [, name index]) relative to the previous segment. Neither a
+// byte count nor a sha256 of the map can tell a stale map from a regenerated one: t134 measured
+// the SAME 404 958 B and the SAME sourcesContent with segments 2 and 148 columns off.
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/** One VLQ segment -> the array of signed deltas it encodes. */
+function vlqFields(segment) {
+    const out = [];
+    let value = 0;
+    let shift = 0;
+    for (const ch of segment) {
+        const digit = B64.indexOf(ch);
+        if (digit < 0) throw new Error('bad base64 VLQ character ' + JSON.stringify(ch));
+        value += (digit & 31) << shift;
+        if ((digit & 32) !== 0) {
+            shift += 5;
+            continue;
+        }
+        const negative = (value & 1) === 1;
+        const magnitude = value >>> 1;
+        out.push(negative ? -magnitude : magnitude);
+        value = 0;
+        shift = 0;
+    }
+    return out;
+}
+
+/** The whole mappings string -> one array of absolute segments per generated line. */
+function decodeMappings(mappings) {
+    if (typeof mappings !== 'string') throw new Error('mappings is not a string');
+    const decoded = [];
+    let srcIdx = 0;
+    let srcLine = 0;
+    let srcCol = 0;
+    let nameIdx = 0;
+    for (const group of mappings.split(';')) {
+        const segments = [];
+        let genCol = 0;
+        if (group.length > 0) {
+            for (const raw of group.split(',')) {
+                if (raw.length === 0) continue;
+                const fields = vlqFields(raw);
+                genCol += fields[0];
+                if (fields.length >= 4) {
+                    srcIdx += fields[1];
+                    srcLine += fields[2];
+                    srcCol += fields[3];
+                    if (fields.length >= 5) nameIdx += fields[4];
+                    segments.push({ genCol, srcIdx, srcLine, srcCol, nameIdx });
+                } else {
+                    segments.push({ genCol, srcIdx: -1, srcLine: -1, srcCol: -1, nameIdx: -1 });
+                }
+            }
+        }
+        decoded.push(segments);
+    }
+    return decoded;
+}
+
+// A literal newline cannot appear inside this file's string constants without confusing the
+// reader, so it is spelled once here.
+const NEWLINE = String.fromCharCode(10);
+
+/** Offset inside a text -> 1-based line and 0-based column (the units a sourcemap uses). */
+function posOf(text, offset) {
+    const before = text.slice(0, offset);
+    const line = before.split(NEWLINE).length;
+    const column = offset - (before.lastIndexOf(NEWLINE) + 1);
+    return { line, column };
+}
+
+/** The segment that governs a generated position: the last one at or before that column. */
+function originAt(decoded, line1, column) {
+    const segments = decoded[line1 - 1] ?? [];
+    let found = null;
+    for (const seg of segments) if (seg.genCol <= column && seg.srcIdx !== -1) found = seg;
+    return found;
+}
+
+/** Where does the map say the identifier at this bundle anchor came from? */
+function mappingProbe(decoded, bundleText, sourceLines, anchor) {
+    const callAt = bundleText.indexOf(anchor.call);
+    if (callAt < 0) return { name: anchor.name, ok: false, reason: 'bundle call anchor missing' };
+    const at = bundleText.indexOf(anchor.ident, callAt);
+    if (at < 0) return { name: anchor.name, ok: false, reason: 'bundle identifier missing' };
+    const pos = posOf(bundleText, at);
+    const origin = originAt(decoded, pos.line, pos.column);
+    if (origin === null) return { name: anchor.name, bundleLine: pos.line, bundleColumn: pos.column, ok: false, reason: 'no segment covers this position' };
+    const lineText = sourceLines[origin.srcLine] ?? '';
+    const identAtOrigin = lineText.slice(origin.srcCol, origin.srcCol + anchor.ident.length);
+    return {
+        name: anchor.name,
+        bundleLine: pos.line,
+        bundleColumn: pos.column,
+        sourceLine: origin.srcLine + 1,
+        sourceColumn: origin.srcCol,
+        identAtOrigin,
+        ok: identAtOrigin === anchor.ident,
+    };
+}
+
+const MAPPING_ANCHORS = [
+    { name: 'DependencyMap', call: '(0, import_jsx_runtime5.jsx)(DependencyMap, {', ident: 'DependencyMap' },
+    { name: 'AddMemberControl', call: '(0, import_jsx_runtime5.jsx)(AddMemberControl, {', ident: 'AddMemberControl' },
+    { name: 'orderDelegationMembers', call: 'orderDelegationMembers(team.members', ident: 'orderDelegationMembers' },
+];
+
+const describeProbe = (probe) => probe.name + ' bundle=' + probe.bundleLine + ':' + probe.bundleColumn
+    + ' -> source=' + (probe.sourceLine ?? '?') + ':' + (probe.sourceColumn ?? '?')
+    + ' identAtOrigin=' + JSON.stringify(probe.identAtOrigin ?? probe.reason ?? '') + ' ok=' + probe.ok;
 
 /** Order of the three anchors inside ONE artefact, as problems (empty when correct). */
 function orderProblems(text, anchors, label) {
@@ -128,9 +249,29 @@ check('M1', 'the sourcemap still names ../lib/client/ActivityPanel.js as sources
     syncProblems(panel, bundle, map, 'tree').length === 0,
     JSON.stringify({ problems: syncProblems(panel, bundle, map, 'tree'), sources2: map.sources[2], contentMatches: map.sourcesContent[2] === panel, mapSha: sha256(mapRaw).slice(0, 16) }));
 
-check('M2', 'mappings, names and version are untouched (only sourcesContent[2] may differ)',
-    map.mappings === beforeMap.mappings && JSON.stringify(map.names) === JSON.stringify(beforeMap.names) && map.version === beforeMap.version && JSON.stringify(map.sources) === JSON.stringify(beforeMap.sources),
-    'mappings same=' + (map.mappings === beforeMap.mappings) + ' names same=' + (JSON.stringify(map.names) === JSON.stringify(beforeMap.names)) + ' version=' + map.version);
+// V20-F1 (t134): the mappings MUST be regenerated whenever sourcesContent[2] changes. The old
+// invariant ("mappings untouched") blessed a map whose sourcesContent said the new code while every
+// segment still pointed at columns of the old code — inside the same 404 958 bytes.
+check('M2', 'V20-F1: the mappings belong to the CURRENT source, so they differ from the recorded before/ map (equal mappings after a source edit would mean a stale map)',
+    map.mappings !== beforeMap.mappings && typeof map.mappings === 'string' && map.mappings.length === beforeMap.mappings.length
+        && JSON.stringify(map.names) === JSON.stringify(beforeMap.names) && map.version === beforeMap.version
+        && JSON.stringify(map.sources) === JSON.stringify(beforeMap.sources),
+    'mappingsDiffer=' + (map.mappings !== beforeMap.mappings) + ' mappingsLen now=' + map.mappings.length + ' before=' + beforeMap.mappings.length
+        + ' mappingsSha now=' + sha256(map.mappings).slice(0, 16) + ' before=' + sha256(beforeMap.mappings).slice(0, 16)
+        + ' namesSame=' + (JSON.stringify(map.names) === JSON.stringify(beforeMap.names)) + ' version=' + map.version);
+
+// ---------------------------------------------------------------- V20-F1 decoded columns
+const decodedNow = decodeMappings(map.mappings);
+const decodedBefore = decodeMappings(beforeMap.mappings);
+const sourceLines = panel.split(NEWLINE);
+const probesNow = MAPPING_ANCHORS.map((anchor) => mappingProbe(decodedNow, bundle, sourceLines, anchor));
+const probesBefore = MAPPING_ANCHORS.map((anchor) => mappingProbe(decodedBefore, bundle, sourceLines, anchor));
+for (const probe of probesNow) console.log('# mapping (shipped): ' + describeProbe(probe));
+for (const probe of probesBefore) console.log('# mapping (before/): ' + describeProbe(probe));
+
+check('M4', 'V20-F1: decoding the SHIPPED mappings lands exactly on the identifier it describes (DependencyMap 1919:2595 -> 392:177, AddMemberControl 1919:2744 -> 392:327, orderDelegationMembers 1920:27 -> 393:55)',
+    probesNow.length === MAPPING_ANCHORS.length && probesNow.every((probe) => probe.ok === true) && decodedNow.length > 3000,
+    probesNow.map(describeProbe).join(' | ') + ' | decodedLines=' + decodedNow.length);
 
 const panelBefore = before.panel.split('\n');
 const panelNow = panel.split('\n');
@@ -179,6 +320,17 @@ check('M3', 'negative control 2b — the same mismatch is invisible to the sourc
         && orderProblems(readFileSync(join(NEG2, 'client.js'), 'utf8'), BUNDLE_ANCHORS, 'neg2').length > 0,
     'source alone is green while the bundle is still old');
 
+// ---- NEGATIVE CONTROL 3 (V20-F1): the SAME decoder on the OLD map must land on the wrong column.
+// This is the case that proves M4 has teeth: the before/ map is byte-for-byte the same LENGTH as the
+// shipped one and carries the same sourcesContent, so every check that compares bytes or hashes is
+// green on it. Only the decoded columns show that it describes code that has moved.
+check('N3', 'V20-F1 negative control — decoding the before/ map lands on the WRONG column for both moved call sites (392:179, inside "pendencyMap"), and the two maps have the same byte length so a byte comparison cannot tell them apart',
+    probesBefore.filter((probe) => probe.ok === false).length === 2
+        && probesBefore.filter((probe) => probe.sourceColumn === 179).length === 2
+        && probesBefore.filter((probe) => probe.sourceColumn === 179).every((probe) => probe.sourceLine === 392)
+        && Buffer.byteLength(before.mapRaw) === Buffer.byteLength(mapRaw),
+    probesBefore.map(describeProbe).join(' | ') + ' | map bytes ' + Buffer.byteLength(before.mapRaw) + ' vs ' + Buffer.byteLength(mapRaw));
+
 const syntax = [];
 for (const file of [PANEL, BUNDLE]) {
     try {
@@ -199,9 +351,55 @@ check('C1', 'the two JavaScript artefacts pass node --check and the sourcemap pa
     syntax.every((entry) => entry.ok === true),
     JSON.stringify(syntax));
 
+// --------------------------------------------------- V21-F3: is the shipped map a BUILD product?
+// The decoded columns of M4 are only evidence if lib/client.js.map really comes out of build/build.mjs.
+// So the build is run here on a COPY of the package, started from the repo root: the copy's bundle and map
+// must be byte-identical to the shipped ones. A hand-edited map, or one left over from an older source,
+// cannot survive this -- it is the only case that ties the mappings to the pipeline that is meant to make
+// them. lib/** is never written: the copy lives under tests/tmp/t128/build-copy.
+// Which gates see the stale map 1f1d1552...? M2 and M4 here (decoded columns), tests/t129-pins.mjs (byte
+// pin), packages/dsh-agent-teams/tests/t130-pack.mjs A2 and tests/t135-pack.mjs A2 (frozen table diff).
+// A byte COUNT and a sha256 of the whole file cannot: the two maps are the same 404 958 bytes.
+const BUILD_COPY = join(REPO_ROOT, 'tests', 'tmp', 't128', 'build-copy');
+
+function buildOnCopy() {
+    const report = { copy: BUILD_COPY.slice(REPO_ROOT.length + 1), cwd: '<repo root> (not the package)', ok: false };
+    rmSync(BUILD_COPY, { recursive: true, force: true });
+    mkdirSync(join(BUILD_COPY, 'build'), { recursive: true });
+    cpSync(join(PKG, 'package.json'), join(BUILD_COPY, 'package.json'));
+    for (const name of ['build.mjs', 'css-module-plugin.mjs']) cpSync(join(PKG, 'build', name), join(BUILD_COPY, 'build', name));
+    cpSync(join(PKG, 'lib', 'client'), join(BUILD_COPY, 'lib', 'client'), { recursive: true });
+    try {
+        symlinkSync(join(PKG, 'node_modules'), join(BUILD_COPY, 'node_modules'), 'junction');
+    } catch (error) {
+        report.reason = 'could not link node_modules (esbuild): ' + String(error.message);
+        return report;
+    }
+    try {
+        execFileSync(process.execPath, [join(BUILD_COPY, 'build', 'build.mjs')], { cwd: REPO_ROOT, stdio: 'pipe', timeout: 240000 });
+    } catch (error) {
+        report.reason = 'build failed: ' + String(error.stderr ?? error.message).slice(0, 400);
+        return report;
+    }
+    const builtBundle = readFileSync(join(BUILD_COPY, 'lib', 'client.js'), 'utf8');
+    const builtMapRaw = readFileSync(join(BUILD_COPY, 'lib', 'client.js.map'), 'utf8');
+    report.bundleSha = sha256(builtBundle).slice(0, 16) + '/' + Buffer.byteLength(builtBundle);
+    report.mapSha = sha256(builtMapRaw).slice(0, 16) + '/' + Buffer.byteLength(builtMapRaw);
+    report.bundleMatches = builtBundle === bundle;
+    report.mapMatches = builtMapRaw === mapRaw;
+    report.ok = report.bundleMatches === true && report.mapMatches === true;
+    return report;
+}
+
+const buildReport = buildOnCopy();
+check('B3', 'V21-F3: build/build.mjs run on a COPY from the repo root reproduces the shipped bundle AND the shipped map byte for byte, so the mappings M4 decodes are a build product rather than an artefact carried forward by hand',
+    buildReport.ok === true,
+    JSON.stringify(buildReport));
+
 console.log('');
 console.log('# panel sha256 ' + sha256(panel) + ' / ' + Buffer.byteLength(panel) + ' B');
 console.log('# bundle sha256 ' + sha256(bundle) + ' / ' + Buffer.byteLength(bundle) + ' B');
 console.log('# map    sha256 ' + sha256(mapRaw) + ' / ' + Buffer.byteLength(mapRaw) + ' B');
+console.log('# map    mappings sha256 ' + sha256(map.mappings) + ' / ' + map.mappings.length + ' chars / ' + decodedNow.length + ' generated lines');
 console.log('# ' + (results.length - failures) + '/' + results.length + ' passed, ' + failures + ' failed');
 process.exit(failures === 0 ? 0 : 1);
