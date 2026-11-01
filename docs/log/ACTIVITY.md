@@ -576,3 +576,24 @@ Lý do mở: toàn bộ 19 vòng dogfood đều nạp plugin qua **symlink tới
 | `check-doc-paths` | EXIT 0 · `paths=114 paths_missing=0 links=41` |
 | đối chiếu câu từ chối ghi | có thật trong `lib/members.js` offset 75 432 (`count=1` cho `not one the plugin owns` và `nothing was written`) |
 | trạng thái cuối | 147 card: 140 VERIFIED · 4 CANCELLED · 3 SUPERSEDED · 1 FAILED (t141) · 0 mở |
+
+## Vòng 24 — captain chấm t148 (đồng bộ chiều cao hai cột)
+
+| Phép đo | Kết quả |
+| --- | --- |
+| sha+bytes 8 tệp t148 | khớp 8/8; `client.js` `44911f22…`/260 704 · map `a6b7d7b7…`/408 920 · CSS `b6d8a2f5…`/52 216 |
+| wiring trong nguồn | `observeColumnHeight` x2 · `memberColumnRef` x3 · `--member-column-height` x1 |
+| suite captain tự chạy | t128 34/34 · t10 50/50 · t129 13/13 · t113 38/38 · t114 16/16 · t98 `--strict` GREEN |
+| mutation bỏ var() (−56 B) | t128 30/34, FAIL H4 + H5; phục hồi `identical` |
+| số đo Chromium của member | rộng/đóng 777,33 vs 777 · rộng/mở 1 099,86 vs 1 100 · 400 task cuộn nội bộ 36 802/293 |
+
+## Vòng 25 — captain chấm t150/t151/t152/t153
+
+| Phép đo | Kết quả |
+| --- | --- |
+| app thật, list thu gọn | hai card cùng đáy ≈ y510 (`docs/kiem-thu/desktop-vong-25-collapsed.png`) |
+| app thật, form Add member mở | cả hai cùng phóng tới ≈ y868, DAG cuộn nội bộ (`…-addmember-open.png`) |
+| t128 sau t150 | 33/33 · mutation bỏ `contain:size` (−13 B) ⇒ 29/33 FAIL H3+H4 |
+| tarball vòng 25 | `da2f297b…`/2 248 536 B/133 entry · `--analyze` 29 PASS/0 FAIL · analyze chỉ đọc |
+| audit t152 | PASS; sweep `PASS=44 FAIL=0 LEGACY=16 DRIFT=0`; V25-F1/F2 medium + V25-F3 low |
+| t153 | t128 33→41 ca; mutation `align-self:stretch`→`auto` trong CSS nhúng (−3 B) ⇒ FAIL C11; `packages/**` drift 0/15 |

@@ -2,7 +2,7 @@
 
 > File sinh tu dong boi `node tools/dependency-report.mjs`. KHONG sua tay: sua du lieu goc roi chay lai.
 > Nguon: `.agent-teams/nami-agent-teams/team.json` (canh that) + `docs/provenance-tasks.json` (canh provenance).
-> Sinh luc: 2026-11-01T08:29:15.743Z · pha doi: **running** · 147 task / 15 member.
+> Sinh luc: 2026-11-01T09:56:08.188Z · pha doi: **running** · 153 task / 15 member.
 
 ## 1. Cach doc
 
@@ -24,6 +24,7 @@ flowchart LR
     t140["t140<br/>✅ completed<br/>dev-build-flash"]
     t141["t141<br/>❌ failed<br/>audit-goat"]
     t144["t144<br/>✅ completed<br/>audit-goat"]
+    t152["t152<br/>✅ completed<br/>audit-goat"]
   end
   subgraph W1["Song 1"]
     direction TB
@@ -36,6 +37,7 @@ flowchart LR
     t145["t145<br/>✅ completed<br/>dev-runtime-goat"]
     t146["t146<br/>✅ completed<br/>dev-build-flash"]
     t147["t147<br/>✅ completed<br/>kiem-thu-goat"]
+    t153["t153<br/>✅ completed<br/>dev-runtime-goat"]
   end
   subgraph W2["Song 2"]
     direction TB
@@ -43,6 +45,7 @@ flowchart LR
     t4["t4<br/>✅ completed<br/>dev-tools-flash"]
     t130["t130<br/>✅ completed<br/>dev-build-flash"]
     t142["t142<br/>✅ completed<br/>dev-ui-goat"]
+    t148["t148<br/>✅ completed<br/>dev-ui-goat"]
   end
   subgraph W3["Song 3"]
     direction TB
@@ -55,6 +58,8 @@ flowchart LR
     t131["t131<br/>✅ completed<br/>audit-goat"]
     t132["t132<br/>✅ completed<br/>kiem-thu-goat"]
     t143["t143<br/>✅ completed<br/>dev-build-flash"]
+    t149["t149<br/>✅ completed<br/>dev-build-flash"]
+    t150["t150<br/>✅ completed<br/>dev-ui-goat"]
   end
   subgraph W4["Song 4"]
     direction TB
@@ -65,6 +70,7 @@ flowchart LR
     t21["t21<br/>✅ completed<br/>kiem-thu"]
     t133["t133<br/>✅ completed<br/>kiem-thu-goat"]
     t134["t134<br/>✅ completed<br/>dev-build-flash"]
+    t151["t151<br/>✅ completed<br/>dev-build-flash"]
   end
   subgraph W5["Song 5"]
     direction TB
@@ -193,7 +199,7 @@ flowchart LR
   subgraph W29["Song 29"]
     direction TB
     t64["t64<br/>⛔ cancelled<br/>audit-goat"]
-    t66["t66<br/>⬜ pending<br/>audit-goat"]
+    t66["t66<br/>⛔ cancelled<br/>audit-goat"]
     t68["t68<br/>✅ completed<br/>dev-build-flash"]
     t88["t88<br/>✅ completed<br/>dev-build-flash"]
     t90["t90<br/>✅ completed<br/>dev-runtime-goat"]
@@ -209,7 +215,7 @@ flowchart LR
     direction TB
     t70["t70<br/>✅ completed<br/>dev-ui-goat"]
     t91["t91<br/>✅ completed<br/>kiem-thu-goat"]
-    t93["t93<br/>⬜ pending<br/>audit-goat"]
+    t93["t93<br/>⛔ cancelled<br/>audit-goat"]
   end
   subgraph W32["Song 32"]
     direction TB
@@ -452,6 +458,11 @@ flowchart LR
   t144 --> t145
   t144 --> t146
   t144 --> t147
+  t147 --> t148
+  t148 --> t149
+  t148 --> t150
+  t150 --> t151
+  t152 --> t153
   t3 -.->|rework| t14
   t4 -.->|follow-up| t15
   t4 -.->|rework| t16
@@ -616,6 +627,7 @@ flowchart LR
 | 0 | t140 | ✅ completed | dev-build-flash | — | — |
 | 0 | t141 | ❌ failed | audit-goat | — | — |
 | 0 | t144 | ✅ completed | audit-goat | — | — |
+| 0 | t152 | ✅ completed | audit-goat | — | — |
 | 1 | t2 | ✅ completed | nghien-cuu | t1 | — |
 | 1 | t5 | ✅ completed | kiem-thu | t1 | — |
 | 1 | t22 | ✅ completed | dev-tools-flash | t9 | — |
@@ -625,10 +637,12 @@ flowchart LR
 | 1 | t145 | ✅ completed | dev-runtime-goat | t144 | — |
 | 1 | t146 | ✅ completed | dev-build-flash | t144 | — |
 | 1 | t147 | ✅ completed | kiem-thu-goat | t144 | — |
+| 1 | t153 | ✅ completed | dev-runtime-goat | t152 | — |
 | 2 | t3 | ✅ completed | dev-runtime-flash | t2 | — |
 | 2 | t4 | ✅ completed | dev-tools-flash | t2 | — |
 | 2 | t130 | ✅ completed | dev-build-flash | t129 | t129 (pack) |
 | 2 | t142 | ✅ completed | dev-ui-goat | t139 | — |
+| 2 | t148 | ✅ completed | dev-ui-goat | t147 | — |
 | 3 | t6 | ✅ completed | audit-kimi | t3, t4 | — |
 | 3 | t10 | ✅ completed | dev-ui-goat | t4, t9 | t22 (rework) |
 | 3 | t14 | ✅ completed | dev-runtime-flash | — | t3 (rework) |
@@ -638,6 +652,8 @@ flowchart LR
 | 3 | t131 | ✅ completed | audit-goat | t130 | t130 (proof) |
 | 3 | t132 | ✅ completed | kiem-thu-goat | t130 | t130 (verification) |
 | 3 | t143 | ✅ completed | dev-build-flash | t142 | — |
+| 3 | t149 | ✅ completed | dev-build-flash | t148 | — |
+| 3 | t150 | ✅ completed | dev-ui-goat | t148 | — |
 | 4 | t7 | ✅ completed | nghien-cuu | t6 | — |
 | 4 | t8 | ✅ completed | dev-tools-flash | t6 | — |
 | 4 | t17 | ✅ completed | dev-runtime-flash | — | t15 (follow-up) |
@@ -645,6 +661,7 @@ flowchart LR
 | 4 | t21 | ✅ completed | kiem-thu | t15, t16 | — |
 | 4 | t133 | ✅ completed | kiem-thu-goat | t132 | t132 (repair) |
 | 4 | t134 | ✅ completed | dev-build-flash | t131 | t131 (repair) |
+| 4 | t151 | ✅ completed | dev-build-flash | t150 | — |
 | 5 | t19 | ✅ completed | audit-kimi | — | t6 (audit-closure), t7 (audit-closure), t8 (audit-closure) |
 | 5 | t135 | ✅ completed | dev-build-flash | t134 | t134 (pack) |
 | 6 | t11 | ✅ completed | kiem-thu-goat | t10, t18, t19 | — |
@@ -698,7 +715,7 @@ flowchart LR
 | 28 | t67 | ✅ completed | dev-ui-goat | — | t62 (follow-up) |
 | 28 | t87 | ✅ completed | dev-runtime-goat | — | t86 (follow-up) |
 | 29 | t64 | ⛔ cancelled | audit-goat | t63 | — |
-| 29 | t66 | ⬜ pending | audit-goat | t63, t65 | — |
+| 29 | t66 | ⛔ cancelled | audit-goat | t63, t65 | — |
 | 29 | t68 | ✅ completed | dev-build-flash | t67 | t67 (pack) |
 | 29 | t88 | ✅ completed | dev-build-flash | t87 | t87 (pack) |
 | 29 | t90 | ✅ completed | dev-runtime-goat | — | t87 (follow-up) |
@@ -708,7 +725,7 @@ flowchart LR
 | 30 | t94 | ✅ completed | dev-runtime-goat | t90 | t90 (follow-up) |
 | 31 | t70 | ✅ completed | dev-ui-goat | t69 | t69 (follow-up) |
 | 31 | t91 | ✅ completed | kiem-thu-goat | — | t89 (follow-up) |
-| 31 | t93 | ⬜ pending | audit-goat | t92 | t92 (proof) |
+| 31 | t93 | ⛔ cancelled | audit-goat | t92 | t92 (proof) |
 | 32 | t71 | ✅ completed | dev-ui-goat | t70 | t70 (sequence), t69 (follow-up) |
 | 32 | t95 | ✅ completed | kiem-thu-goat | t91 | t91 (follow-up) |
 | 32 | t96 | ✅ completed | dev-build-flash | t94 | t93 (pack), t94 (pack) |

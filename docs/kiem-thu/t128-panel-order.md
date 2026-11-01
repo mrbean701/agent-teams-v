@@ -188,3 +188,134 @@ không có lần ghi nào vào `lib/**` trong task này. Bản sao dùng cho đ�
 4. **Doc này mục 1–5 là bản ghi t128** (14 ca, bundle `377bcea2…`/258 432 B). Bundle hiện tại đã được
    các task sau build lại (`7dca20dd1edf2c66…`/258 790 B) và bộ kiểm đã lớn hơn nhiều; số trong mục 1–5
    là LỊCH SỬ, số trong mục 6 là hiện tại.
+## 7. t153 — cổng ngữ nghĩa cho TOÀN BỘ declaration của rule rộng, và cổng CẤM cắt nội dung
+
+Audit vòng 25 (`docs/audit/closure-vong-25.md`, V25-F1/F2) đo được hai lỗ hổng nữa, cả hai đều
+thuộc loại 'cổng có đó nhưng chỉ canh một phần':
+
+| mã | lỗ hổng | cách audit chứng minh |
+| --- | --- | --- |
+| V25-F1 | C7 chỉ so `grid-template-columns` giữa CSS NHÚNG và tệp. `contain`, `align-self`, `max-height` (cơ chế equal-height của t150) KHÔNG được so | đổi `contain:size`→`contain:none` CHỈ trong bản nhúng (delta 0 B) ⇒ `H3/C7/C8` vẫn XANH, chỉ `B3/X1/X2` đỏ nhờ rebuild + pin |
+| V25-F2 | không cổng nào canh việc CẮT nội dung | thêm `;overflow:hidden` vào rule rộng ở CẢ hai bản rồi rebuild ⇒ `H1–H5/C7/C8/B3` đều xanh, trong khi DAG bị cắt thật |
+
+Điểm chung: bản nhúng và tệp có thể ĐỒNG Ý với nhau mà layout vẫn sai — nên phép so hai nguồn
+không đủ, phải có thêm phép kiểm ĐỘC LẬP về ngữ nghĩa bố cục.
+
+### 7.1 C11 — so TOÀN BỘ declaration của CẢ HAI rule rộng
+
+Rule rộng là hai rule, không phải một: `.aYQbCq_team[data-workspace-team]` (khai `display`,
+`grid-template-columns`, `gap`, `align-items`) và `.aYQbCq_team[data-workspace-team]>.aYQbCq_dependencySection`
+(khai `align-self`, `contain`, `max-height`). Cả hai đều được so, nên sáu thuộc tính mà acceptance
+liệt kê đều nằm dưới cổng.
+
+Cơ chế:
+
+```
+declarationsOf(body)        -> Map<tên-thuộc-tính, giá-trị đã chuẩn hoá>   (tách ';', chuẩn hoá khoảng trắng + dấu phẩy)
+wideRuleBodies(cssText, s)  -> mọi body của rule s trong các khối '@container (width>=800px)'
+WIDE_RULE_CONTRACT          -> hai rule + danh sách thuộc tính BẮT BUỘC của từng rule
+wideRuleParityProblems(bundleText, cssText) -> danh sách problem
+```
+
+Mỗi problem mang KEY PATH + tên thuộc tính + CẢ HAI giá trị. Hai loại problem:
+`<tên> is MISSING (inlined copy: …, file: …)` cho thuộc tính biến mất ở một bên, và
+`<tên> = "<bản nhúng>" but lib/client/ActivityPanel.module.css declares "<tệp>"` khi hai bên lệch giá trị.
+
+### 7.2 C16 — cổng CẤM CẮT
+
+`clippingProblems(cssText, label)` kiểm hai điều, độc lập với việc hai bản có khớp nhau hay không:
+
+1. rule rộng KHÔNG được khai `overflow` / `overflow-x` / `overflow-y` = `hidden` hoặc `clip`;
+2. rule GỐC (khổ hẹp) phải còn `overflow-y:auto`, nếu không thì dưới 800px card sẽ cắt thay vì cuộn.
+
+Thông điệp nói thẳng hậu quả: *“the wide rule must never clip the dependency map (a cut DAG reads as
+an empty DAG); scrolling belongs to the base rule”*.
+
+### 7.3 Tám ca mới (33 → 41) và số đo thật
+
+| ca | khẳng định | số đo |
+| --- | --- | --- |
+| C11 | toàn bộ declaration của hai rule rộng khớp giữa bản nhúng và tệp | PASS; chạy thật in `align-self:stretch; contain:size; max-height:none` và rule lưới `display:grid; grid-template-columns:minmax(280px,1fr) minmax(0,2fr); gap:16px; align-items:start` |
+| C12 | chỉ bản nhúng: `contain:size`→`contain:none` ⇒ ĐỎ, nêu `contain` | `delta=0 B` + thông điệp dưới |
+| C13 | chỉ bản nhúng: `align-self:stretch`→`auto` ⇒ ĐỎ, nêu `align-self` | `delta=-3 B` |
+| C14 | chỉ bản nhúng: `max-height:none`→`56vh` ⇒ ĐỎ, nêu `max-height` | `delta=0 B` |
+| C15 | chỉ bản nhúng: XOÁ hẳn `contain` ⇒ ĐỎ với nhánh 'MISSING' | `delta=-13 B` |
+| C16 | không bản nào cắt; rule gốc còn `overflow-y:auto` | PASS cả hai bản |
+| C17 | thêm `;overflow:hidden` vào rule rộng ở CẢ HAI bản ⇒ parity SẠCH nhưng cổng cắt ĐỎ | `parityAfterBothCopiesChanged=0 applies(css)=true applies(bundle)=true` + 1 clipping problem |
+| C18 | bỏ `overflow-y:auto` khỏi rule GỐC ⇒ cổng cắt ĐỎ | `delta=-15 B` |
+
+Bốn đối chứng âm bắt buộc — NGUYÊN VĂN thông điệp (mỗi ca chạy trên BẢN SAO trong
+`tests/tmp/t153/`, `ActivityPanel.module.css` được assert còn byte-identical):
+
+```
+C12  bundle lib/client.js (inlined stylesheet) :: @container (width>=800px) > .aYQbCq_team[data-workspace-team]>.aYQbCq_dependencySection > contain = "none" but lib/client/ActivityPanel.module.css declares "size"
+C13  … > align-self = "auto" but lib/client/ActivityPanel.module.css declares "stretch"
+C14  … > max-height = "56vh" but lib/client/ActivityPanel.module.css declares "none"
+C15  … > contain is MISSING (inlined copy: absent, lib/client/ActivityPanel.module.css: "size") — the wide layout declares it, so one copy lost it
+C17  lib/client/ActivityPanel.module.css (clipped copy) :: .aYQbCq_team[data-workspace-team]>.aYQbCq_dependencySection > overflow = "hidden" — the wide rule must never clip the dependency map (a cut DAG reads as an empty DAG); scrolling belongs to the base rule
+```
+
+C17 là ca quan trọng nhất: nó tái hiện ĐÚNG đột biến M3 của audit (sửa cả hai bản rồi rebuild) và cho
+thấy `parityAfterBothCopiesChanged=0` — nghĩa là nếu chỉ có C11 thì đột biến đó vẫn lọt. Cổng CẤT là
+thứ duy nhất bắt được nó, và đó là lý do nó phải tồn tại song song với C11 chứ không thay C11.
+
+`delta=0 B` ở C12 và C14 là chi tiết đáng nhớ: hai đột biến này KHÔNG đổi số byte, nên `B3` (rebuild
+trùng byte) và mọi phép ghim sha đều không nói được gì về chúng khi bản nhúng bị sửa mà không rebuild.
+
+### 7.4 Hồi quy và bất biến của `packages/dsh-agent-teams/**`
+
+| lệnh | exit | số đo |
+| --- | --- | --- |
+| `node tests/t128-panel-order.mjs` | 0 | `# 41/41 passed, 0 failed` (trước t153: 33 ca) |
+| `node tests/t10-ui-bundle-smoke.mjs` | 0 | `TOTAL 50 checks, 50 passed, 0 failed` |
+| `node tests/t129-pins.mjs` | 0 | `# 13/13 passed, 0 failed` |
+| `node tests/t113-roster-assertion.mjs` | 0 | `# 38/38 passed, 0 failed` |
+| `node tests/t114-source-freeze.mjs` | 0 | `# 16/16 passed, 0 failed` (`frozen=13 files`) |
+| `node tests/t98-render-coverage.mjs --strict` | 0 | `verdict GREEN` |
+
+0 boot: không suite sống nào chạy. `B3` vẫn build trong tiến trình trên bản sao như cũ.
+
+Bảng 15 tệp `packages/dsh-agent-teams/**` (13 dòng FROZEN + 2 tệp nguồn hay đổi), đo bằng
+`node:crypto` ngay trước khi nộp — **drift 0/15**, nên verdict vòng 25 còn hiệu lực:
+
+| tệp | sha256 (16 ký tự đầu) | bytes |
+| --- | --- | --- |
+| `lib/tools.js` | `e51734baf4693cd3` | 213 715 |
+| `lib/members.js` | `50f558f8b207d874` | 102 260 |
+| `lib/state.js` | `56664c59ff400319` | 57 508 |
+| `lib/snapshot.js` | `a2a87e1b0c0b34ea` | 13 986 |
+| `lib/index.js` | `2d28e617f0683e42` | 45 315 |
+| `lib/tool-names.js` | `e3def5db908dcbd5` | 808 |
+| `lib/client.js` | `67d616a608c38ed3` | 258 925 |
+| `lib/client.js.map` | `718f41544f36ae51` | 405 694 |
+| `lib/types/members.d.ts` | `c53250ab41bff8c3` | 31 769 |
+| `lib/types/snapshot.d.ts` | `962f99a7bcb18b94` | 7 627 |
+| `lib/types/tools.d.ts` | `41cfc56576ed8ffd` | 7 546 |
+| `lib/client/ActivityPanel.module.css` | `210186828966d0cf` | 52 180 |
+| `package.json` | `92a6404071e457cc` | 10 498 |
+| `lib/client/ActivityPanel.js` | `60f4476634d097dc` | 64 305 |
+| `lib/client/WorkspaceActivity.module.css` | `c7f2d5e5d295c40f` | 3 579 |
+
+Cây `lib/**`: 79 tệp / 1 812 014 B, `pkg_tree_sha256=da0e6853b463577da4bd3774c8bd8ea18cdfbf6661e4a949ee83652025410fd7`.
+`lib/client.js` = `67d616a608c38ed3…`/258 925 B khớp đúng bản `final` mà audit vòng 25 đo — tức cây
+đang ở đúng trạng thái đã được audit, không phải một bản khác.
+mtime mới nhất dưới `packages/dsh-agent-teams/**` là `2026-11-01T09:16:22.966Z`
+(`lib/client/ActivityPanel.module.css`), sớm hơn thời điểm ghi bộ kiểm `09:47:49Z` ⇒ trong task này
+không có lần ghi nào vào package.
+
+### 7.5 Giới hạn
+
+1. **Parity so hai bản, không so với Ý ĐỊNH.** Nếu ai đó sửa CẢ HAI bản cùng một giá trị sai
+   (ví dụ `contain:none` ở cả hai), C11 xanh; khi đó `H3` (đòi `contain:size`, `align-self:stretch`,
+   `max-height:none`) là phép bắt. Ba lớp cùng tồn tại là có chủ ý: C11 bắt lệch, H3 bắt sai ngữ nghĩa,
+   C16 bắt cắt nội dung.
+2. **`WIDE_RULE_CONTRACT.required` là danh sách ĐÓNG.** Thêm một declaration mới vào rule rộng mà
+   không thêm vào danh sách thì nó vẫn được so (mọi tên trong hợp đồng hợp của hai bản đều được so),
+   nhưng KHÔNG được bảo vệ khỏi việc bị xoá ở cả hai bản. Muốn bảo vệ thì phải thêm tên — và đó là
+   thay đổi có chủ ý, không phải tự động.
+3. **C16 chỉ đọc declaration.** Nó không biết `overflow:hidden` đặt ở một rule KHÁC trùm lên
+   (ví dụ `.panelColumnMain`), cũng không biết `height` cố định làm cắt. Nó canh đúng nơi audit
+   chỉ ra, không canh mọi cách cắt CSS có thể.
+4. **Không có lần render thật nào trong task này** (0 boot): cổng chứng minh bất biến của
+   stylesheet phát hành, không chứng minh pixel. B4 của audit vòng 25 (Chromium + CSS phát hành)
+   là phép đo bố cục thật, và nó không thay thế được bằng suite này.

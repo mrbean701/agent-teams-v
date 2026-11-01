@@ -557,6 +557,221 @@ check('C10', 'negative control — changing ONLY lib/client/ActivityPanel.module
     cssOnlyProblems.length > 0 && bundle === fs.readFileSync(BUNDLE, 'utf8'),
     'copy=' + cssOnlyPath.slice(REPO_ROOT.length + 1) + ' applies=' + (cssOnlyText !== css) + ' delta=' + (Buffer.byteLength(cssOnlyText) - Buffer.byteLength(css)) + ' B problems=' + JSON.stringify(cssOnlyProblems));
 
+
+// ---------------------------------------------------------------- t150: equal height is CSS-only, never a JS measurement
+// The t148 build measured the member column with a ResizeObserver and pushed the number into
+// --member-column-height. On the real app the effect ran once with a null ref and never again, so the
+// variable was never set and the dependency card fell back to its content height (delta ~-170px on a
+// 1080px window). The mechanism below needs no measurement at all: size containment makes the card
+// contribute ZERO height to the grid row, so the row is sized by the LEFT column (whose content is
+// what the user sees), and align-self:stretch then gives the card exactly that row height. The card
+// still scrolls its own DAG because the base rule keeps overflow-y:auto.
+const REMOVED_IDENTIFIERS = ['memberColumnHeight', 'observeColumnHeight', 'memberColumnRef', '--member-column-height'];
+function deadWiringProblems(text, label) {
+    const problems = [];
+    for (const identifier of REMOVED_IDENTIFIERS) {
+        if (text.indexOf(identifier) >= 0) problems.push(label + ' still carries ' + JSON.stringify(identifier));
+    }
+    return problems;
+}
+const panelDead = deadWiringProblems(panel, 'the panel');
+const bundleDead = deadWiringProblems(bundle, 'the bundle');
+check('H1', 'A4: the measured-height wiring is GONE from the panel AND the shipped bundle (no state, no ref, no observer helper, no CSS variable), so equal height cannot depend on a measurement landing at the right moment',
+    panelDead.length === 0 && bundleDead.length === 0,
+    (panelDead.concat(bundleDead).join('; ')) || 'both clean: ' + REMOVED_IDENTIFIERS.join(', ') + ' all absent');
+const wiredAgain = panel
+    .replace('function DependencyMap({ tasks, members, t, discarded = false, workspace = false, onSelectTask }) {', 'function DependencyMap({ tasks, members, t, discarded = false, workspace = false, onSelectTask, columnHeight }) {')
+    .replace('"data-dependency-map": true, children: [', '"data-dependency-map": true, style: columnHeight === undefined ? undefined : { \'--member-column-height\': columnHeight }, children: [');
+const wiredAgainProblems = deadWiringProblems(wiredAgain, 'the copy');
+check('H2', 'negative control — putting the measured-height wiring back into a COPY of the panel makes H1 red (the absence is asserted, not assumed)',
+    wiredAgain !== panel && wiredAgainProblems.length >= 1,
+    'applies=' + (wiredAgain !== panel) + ' delta=' + (Buffer.byteLength(wiredAgain) - Buffer.byteLength(panel)) + ' B problems=' + JSON.stringify(wiredAgainProblems));
+
+const WIDE_DEP_RULE = '.aYQbCq_team[data-workspace-team]>.aYQbCq_dependencySection';
+function wideBlockBodies(cssText) {
+    const bodies = [];
+    let from = 0;
+    for (;;) {
+        const at = cssText.indexOf(GRID_HEADER, from);
+        if (at < 0) break;
+        bodies.push(blockAt(cssText.slice(at), GRID_HEADER));
+        from = at + GRID_HEADER.length;
+    }
+    return bodies;
+}
+function wideDependencyRuleBodies(cssText) {
+    const pattern = new RegExp(escapeRegExp(WIDE_DEP_RULE) + '\\{([^}]*)\\}');
+    return wideBlockBodies(cssText)
+        .map((body) => body.match(pattern))
+        .filter((match) => match !== null)
+        .map((match) => match[1]);
+}
+function equalHeightProblems(cssText) {
+    const problems = [];
+    const rules = wideDependencyRuleBodies(cssText);
+    if (rules.length !== 1) return ['expected exactly ONE wide-layout rule for ' + WIDE_DEP_RULE + ', found ' + rules.length];
+    const body = rules[0];
+    if (!/contain:\s*size/.test(body)) problems.push('the card still takes its height from its own content (no contain:size): ' + body);
+    if (!/align-self:\s*stretch/.test(body)) problems.push('the card does not stretch to the row it sits in: ' + body);
+    if (!/max-height:\s*none/.test(body)) problems.push('a fixed ceiling would clip a member column taller than the viewport: ' + body);
+    const base = ruleFor(cssText, WIDE_DEP_RULE);
+    if (!/max-height:\s*56vh/.test(base)) problems.push('the narrow-mode fallback lost its 56vh ceiling: ' + base);
+    if (!/overflow-y:\s*auto/.test(base)) problems.push('the narrow-mode card no longer scrolls internally: ' + base);
+    return problems;
+}
+const equalHeight = equalHeightProblems(css);
+check('H3', 'A1: the wide layout makes the dependency card contribute NO height to the grid row (contain:size) and stretch to the row (align-self:stretch) with no ceiling, while the narrow fallback keeps its 56vh ceiling and internal scroll',
+    equalHeight.length === 0,
+    equalHeight.join('; ') || 'wide: ' + wideDependencyRuleBodies(css)[0] + ' | base: ' + ruleFor(css, WIDE_DEP_RULE));
+const MUTATIONS = [
+    { name: 'drop contain:size', text: css.replace('align-self:stretch;contain:size;max-height:none', 'align-self:stretch;max-height:none') },
+    { name: 'restore the 56vh ceiling in the wide layout', text: css.replace('align-self:stretch;contain:size;max-height:none', 'align-self:stretch;contain:size;max-height:56vh') },
+    { name: 'drop align-self:stretch', text: css.replace('align-self:stretch;contain:size;max-height:none', 'contain:size;max-height:none') },
+    { name: 'drop the narrow fallback ceiling', text: css.replace('max-height:56vh;overflow-y:auto', 'overflow-y:auto') },
+];
+const mutationResults = MUTATIONS.map((entry) => ({ name: entry.name, applies: entry.text !== css, delta: Buffer.byteLength(entry.text) - Buffer.byteLength(css), problems: equalHeightProblems(entry.text) }));
+check('H4', 'negative control — each of the four ways to break equal height (no contain:size, a fixed ceiling, no stretch, no narrow fallback) makes H3 red',
+    mutationResults.every((entry) => entry.applies && entry.problems.length >= 1),
+    mutationResults.map((entry) => entry.name + ': applies=' + entry.applies + ' delta=' + entry.delta + ' B problems=' + entry.problems.length).join(' | '));
+const renderedDependencyForHeight = rendered === '' ? '' : (rendered.match(/<section[^>]*data-dependency-map[^>]*>/) || [''])[0];
+check('H5', 'A1: the rendered card carries NO inline height and no measured variable, because the equal-height mechanism lives entirely in the stylesheet',
+    renderedDependencyForHeight !== '' && /--member-column-height|style=/.test(renderedDependencyForHeight) === false,
+    renderedDependencyForHeight === '' ? 'the rendered tree has no dependency section' : renderedDependencyForHeight.slice(0, 240));
+// ---------------------------------------------------------------- t153: EVERY declaration of the wide rules, and no clipping (V25-F1/F2)
+// C7 compares ONE declaration (grid-template-columns) of ONE rule. Audit vòng 25 showed the rest of
+// the equal-height mechanism was unguarded: flipping contain:size -> contain:none inside the inlined
+// copy only left H3/C7/C8 green (only the rebuild + pin checks noticed), and adding overflow:hidden to
+// the wide rule in BOTH copies produced no red at all — the DAG would simply be cut on screen.
+// The gate below therefore compares the WHOLE declaration set of both wide rules (the grid rule and
+// the dependency-card rule) between the inlined copy and the file, then asserts the layout may never
+// clip. Comparison is semantic: property name + whitespace-normalised value, never raw text.
+function declarationsOf(body) {
+    const out = new Map();
+    for (const raw of body.split(';')) {
+        const part = raw.trim();
+        if (part === '') continue;
+        const at = part.indexOf(':');
+        if (at < 0) continue;
+        const name = part.slice(0, at).trim().toLowerCase();
+        const value = part.slice(at + 1).replace(/\s+/g, ' ').replace(/\s*,\s*/g, ',').trim();
+        out.set(name, value);
+    }
+    return out;
+}
+function wideRuleBodies(cssText, selector) {
+    const pattern = new RegExp(escapeRegExp(selector) + '\\{([^}]*)\\}');
+    return wideBlockBodies(cssText).map((body) => body.match(pattern)).filter((match) => match !== null).map((match) => match[1]);
+}
+// The declarations the wide layout actually depends on, per rule. Not 'every property CSS may ever
+// have': a name here is a claim the layout breaks without, so its absence is a problem in either copy.
+const WIDE_RULE_CONTRACT = [
+    { selector: TEAM_SELECTOR, keyPath: '@container (width>=800px) > ' + TEAM_SELECTOR, required: ['display', 'grid-template-columns', 'gap', 'align-items'] },
+    { selector: WIDE_DEP_RULE, keyPath: '@container (width>=800px) > ' + WIDE_DEP_RULE, required: ['align-self', 'contain', 'max-height'] },
+];
+function wideRuleParityProblems(bundleText, cssText) {
+    const problems = [];
+    for (const rule of WIDE_RULE_CONTRACT) {
+        const embeddedBodies = wideRuleBodies(bundleText, rule.selector);
+        const fileBodies = wideRuleBodies(cssText, rule.selector);
+        const keyPath = 'bundle lib/client.js (inlined stylesheet) :: ' + rule.keyPath;
+        if (embeddedBodies.length !== 1) problems.push(keyPath + ': expected exactly ONE wide rule, found ' + embeddedBodies.length + ' in the inlined copy');
+        if (fileBodies.length !== 1) problems.push('lib/client/ActivityPanel.module.css :: ' + rule.keyPath + ': expected exactly ONE wide rule, found ' + fileBodies.length);
+        if (embeddedBodies.length !== 1 || fileBodies.length !== 1) continue;
+        const embedded = declarationsOf(embeddedBodies[0]);
+        const declared = declarationsOf(fileBodies[0]);
+        for (const name of rule.required) {
+            const inEmbedded = embedded.has(name);
+            const inFile = declared.has(name);
+            if (!inEmbedded || !inFile) {
+                problems.push(keyPath + ' > ' + name + ' is MISSING (inlined copy: ' + (inEmbedded ? JSON.stringify(embedded.get(name)) : 'absent') + ', lib/client/ActivityPanel.module.css: ' + (inFile ? JSON.stringify(declared.get(name)) : 'absent') + ') — the wide layout declares it, so one copy lost it');
+            }
+        }
+        const names = [...new Set([...embedded.keys(), ...declared.keys()])].sort();
+        for (const name of names) {
+            const left = embedded.has(name) ? embedded.get(name) : '<absent>';
+            const right = declared.has(name) ? declared.get(name) : '<absent>';
+            if (left !== right) {
+                problems.push(keyPath + ' > ' + name + ' = ' + JSON.stringify(left) + ' but lib/client/ActivityPanel.module.css declares ' + JSON.stringify(right));
+            }
+        }
+    }
+    return problems;
+}
+const CLIP_DECLARATIONS = ['overflow', 'overflow-x', 'overflow-y'];
+function clippingProblems(cssText, label) {
+    const problems = [];
+    const wideDepBodies = wideRuleBodies(cssText, WIDE_DEP_RULE);
+    if (wideDepBodies.length !== 1) problems.push(label + ': expected exactly ONE wide rule for ' + WIDE_DEP_RULE + ', found ' + wideDepBodies.length);
+    for (const body of wideDepBodies) {
+        const declarations = declarationsOf(body);
+        for (const name of CLIP_DECLARATIONS) {
+            const value = declarations.get(name);
+            if (value !== undefined && /(hidden|clip)/.test(value)) {
+                problems.push(label + ' :: ' + WIDE_DEP_RULE + ' > ' + name + ' = ' + JSON.stringify(value) + ' — the wide rule must never clip the dependency map (a cut DAG reads as an empty DAG); scrolling belongs to the base rule');
+            }
+        }
+    }
+    const base = ruleFor(cssText, WIDE_DEP_RULE);
+    if (!/overflow-y:\s*auto/.test(base)) problems.push(label + ' :: base rule ' + WIDE_DEP_RULE + ' lost overflow-y:auto, so under 800px the card clips instead of scrolling: ' + base);
+    return problems;
+}
+const parityNow = wideRuleParityProblems(bundle, css);
+check('C11', 'every declaration of BOTH wide rules (' + TEAM_SELECTOR + ' and ' + WIDE_DEP_RULE + ') is the same in the inlined copy and in ActivityPanel.module.css — compared by property name + normalised value, so contain / align-self / max-height / display / gap / grid-template-columns can no longer drift silently',
+    parityNow.length === 0,
+    parityNow.length === 0
+        ? WIDE_RULE_CONTRACT.map((rule) => rule.selector + ' -> ' + [...declarationsOf(wideRuleBodies(css, rule.selector)[0]).entries()].map((pair) => pair[0] + ':' + pair[1]).join('; ')).join(' || ')
+        : parityNow.join('; '));
+// A2 — three negative controls, each changing ONLY the inlined copy. Written to disk under
+// tests/tmp/t153 and re-read, so the control exercises the file path the gate really uses.
+const T153 = path.join(REPO_ROOT, 'tests', 'tmp', 't153');
+fs.mkdirSync(T153, { recursive: true });
+const EQ_WIDE = 'align-self:stretch;contain:size;max-height:none';
+const EMBEDDED_MUTANTS = [
+    { id: 'C12', name: 'contain', from: EQ_WIDE, to: 'align-self:stretch;contain:none;max-height:none', expect: 'contain' },
+    { id: 'C13', name: 'align-self', from: EQ_WIDE, to: 'align-self:auto;contain:size;max-height:none', expect: 'align-self' },
+    { id: 'C14', name: 'max-height', from: EQ_WIDE, to: 'align-self:stretch;contain:size;max-height:56vh', expect: 'max-height' },
+    { id: 'C15', name: 'contain (dropped entirely)', from: EQ_WIDE, to: 'align-self:stretch;max-height:none', expect: 'contain' },
+];
+if (hits(bundle, EQ_WIDE) !== 1) throw new Error('t128 C12-C15 expect exactly one ' + JSON.stringify(EQ_WIDE) + ' in the bundle; got ' + hits(bundle, EQ_WIDE));
+for (const mutant of EMBEDDED_MUTANTS) {
+    const dir = path.join(T153, 'embedded-' + mutant.name.replace(/[^a-z-]/g, ''));
+    fs.mkdirSync(dir, { recursive: true });
+    const target = path.join(dir, 'client.js');
+    const mutated = bundle.replace(mutant.from, mutant.to);
+    fs.writeFileSync(target, mutated);
+    const reRead = fs.readFileSync(target, 'utf8');
+    const problems = wideRuleParityProblems(reRead, css);
+    const named = problems.filter((problem) => problem.includes('> ' + mutant.expect + ' '));
+    check(mutant.id, 'negative control (A2) — changing ONLY the inlined copy (' + mutant.name + ') makes C11 red and NAMES ' + mutant.expect + ', while ActivityPanel.module.css stays byte-identical',
+        problems.length > 0 && named.length > 0 && css === fs.readFileSync(PANEL_CSS, 'utf8'),
+        'copy=' + target.slice(REPO_ROOT.length + 1) + ' applies=' + (reRead !== bundle) + ' delta=' + (Buffer.byteLength(reRead) - Buffer.byteLength(bundle)) + ' B problems=' + JSON.stringify(problems));
+}
+const clippingNow = clippingProblems(css, 'lib/client/ActivityPanel.module.css').concat(clippingProblems(bundle, 'bundle lib/client.js (inlined stylesheet)'));
+check('C16', 'neither copy of the wide rule clips (no overflow/overflow-x/overflow-y: hidden|clip) and the base rule still scrolls its DAG under 800px (overflow-y:auto)',
+    clippingNow.length === 0, clippingNow.join('; ') || 'no clipping declaration in either copy; base rule keeps overflow-y:auto');
+// A3 — the exact case audit vòng 25 let through: overflow:hidden in the wide rule of BOTH copies.
+// Both copies agree, so parity is clean and C11 stays green; only the clipping gate can see it.
+const clipper = (text) => text.replace(EQ_WIDE + '}', EQ_WIDE + ';overflow:hidden}');
+const cssClipped = clipper(css);
+const bundleClipped = clipper(bundle);
+const clipDir = path.join(T153, 'both-clipped');
+fs.mkdirSync(clipDir, { recursive: true });
+fs.writeFileSync(path.join(clipDir, 'ActivityPanel.module.css'), cssClipped);
+fs.writeFileSync(path.join(clipDir, 'client.js'), bundleClipped);
+const cssClippedReRead = fs.readFileSync(path.join(clipDir, 'ActivityPanel.module.css'), 'utf8');
+const bundleClippedReRead = fs.readFileSync(path.join(clipDir, 'client.js'), 'utf8');
+const clippedParity = wideRuleParityProblems(bundleClippedReRead, cssClippedReRead);
+const clippedProblems = clippingProblems(cssClippedReRead, 'lib/client/ActivityPanel.module.css (clipped copy)');
+check('C17', 'negative control (A3) — adding overflow:hidden to the wide rule in BOTH copies keeps parity clean (both agree) yet the clipping gate goes RED, which is exactly the audit mutation that no gate caught',
+    cssClipped !== css && bundleClipped !== bundle && clippedParity.length === 0 && clippedProblems.length >= 1
+    && clippedProblems.filter((problem) => problem.includes('overflow')).length >= 1,
+    'parityAfterBothCopiesChanged=' + clippedParity.length + ' applies(css)=' + (cssClipped !== css) + ' applies(bundle)=' + (bundleClipped !== bundle) + ' clippingProblems=' + JSON.stringify(clippedProblems));
+const narrowNoScroll = css.replace('max-height:56vh;overflow-y:auto', 'max-height:56vh');
+const narrowNoScrollProblems = narrowNoScroll === css ? ['mutation did not apply'] : clippingProblems(narrowNoScroll, 'copy (narrow mode without scroll)');
+check('C18', 'negative control — dropping overflow-y:auto from the BASE rule makes under-800px widen into a clip instead of a scroll, and C16 red',
+    narrowNoScroll !== css && narrowNoScrollProblems.length >= 1,
+    'applies=' + (narrowNoScroll !== css) + ' delta=' + (Buffer.byteLength(narrowNoScroll) - Buffer.byteLength(css)) + ' B problems=' + JSON.stringify(narrowNoScrollProblems));
+
 // ---------------------------------------------------------------- sourcemap truth (V20-F1)
 const decoded = decodeMappings(mapJson.mappings);
 const panelIdx = mapJson.sources.indexOf('../lib/client/ActivityPanel.js');

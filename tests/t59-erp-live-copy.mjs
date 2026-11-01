@@ -94,6 +94,15 @@ const PKG = join(REPO_ROOT, 'packages', 'dsh-agent-teams');
  * of it. lib/client.js + its map + the stylesheet changed together; the ten other rows did not.
  * lib/client/WorkspaceActivity.module.css also changed in t142 (max-width:none) but it has never
  * been a FROZEN row, which is why it is not listed here.
+ *
+ * t150: the same three rows again. t148's JS measurement was replaced by a CSS-only equal-height rule
+ * (contain:size + align-self:stretch in the wide block), so the panel, the stylesheet, the bundle and
+ * the map all moved together and the ten other rows were re-measured without drift.
+ *
+ * t148: the same three rows once more. The dependency column now copies the member column's measured
+ * height (ResizeObserver -> --member-column-height, with height:auto / max-height:56vh as the
+ * no-JS fallback), which touches the panel component, the stylesheet and therefore the bundle and
+ * its map. The ten other rows were re-measured and did not drift.
  */
 const FROZEN = [
     { path: 'lib/tools.js', sha256: 'e51734baf4693cd30f4c86aaf577afb58f8afef39788588d900a93621ae62d61', bytes: 213715 },
@@ -102,12 +111,12 @@ const FROZEN = [
     { path: 'lib/snapshot.js', sha256: 'a2a87e1b0c0b34ea1f8cb4a45c195d60d613eca997d0ce0d60e47d1a568c9a60', bytes: 13986 },
     { path: 'lib/index.js', sha256: '2d28e617f0683e420a30875557bbb7589cb0221e40e8839f7fdd9d1015d227c9', bytes: 45315 },
     { path: 'lib/tool-names.js', sha256: 'e3def5db908dcbd510811cb2da9c2076c3cf948b7b734bff73c510f85ac3ec58', bytes: 808 },
-    { path: 'lib/client.js', sha256: '7dca20dd1edf2c6688a9d32d56a2f03f0ce13feac3bc71a57c05bfbdc65b1165', bytes: 258790 },
-    { path: 'lib/client.js.map', sha256: '173b684f1a6a569c33f29e1c294ce2aad71944653f1af08c7bfa6aed5fdd16f2', bytes: 405349 },
+    { path: 'lib/client.js', sha256: '67d616a608c38ed37aae64e53c95442ed0f1f906e2ccf41a5f661f8ea4ab10c0', bytes: 258925 },
+    { path: 'lib/client.js.map', sha256: '718f41544f36ae51c5377be46aef12f343f09147f09e465b2f3581ddc0caa218', bytes: 405694 },
     { path: 'lib/types/members.d.ts', sha256: 'c53250ab41bff8c310f3bed4f808f8c799296878b060670527b8fbc1f749239e', bytes: 31769 },
     { path: 'lib/types/snapshot.d.ts', sha256: '962f99a7bcb18b9482b0d4e6933bde0c79356b885c323c0e60f596e6c0fd1a22', bytes: 7627 },
     { path: 'lib/types/tools.d.ts', sha256: '41cfc56576ed8ffd8020cba53f6ed7a91ba30382ea46a0e136f02e4d3a67f5c3', bytes: 7546 },
-    { path: 'lib/client/ActivityPanel.module.css', sha256: '7ea5190c7d97855639fe040715176114e1c809b81302238bbf00a172acd6823b', bytes: 52045 },
+    { path: 'lib/client/ActivityPanel.module.css', sha256: '210186828966d0cf4f5db66ca77176cd932f322814e3871f2f6b8379d42d98a6', bytes: 52180 },
     { path: 'package.json', sha256: '92a6404071e457ccc49f485525aab17e467db0e76d4585a50d49997af5451f36', bytes: 10498 },
 ];
 /** Printed verbatim when a file drifted: the reader needs to know what to do, not only that it is red. */

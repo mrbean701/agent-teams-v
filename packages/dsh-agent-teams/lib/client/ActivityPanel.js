@@ -239,6 +239,8 @@ function WorkspaceSummary({ team, t, discarded }) {
                             return _jsxs("li", { children: [art === null ? _jsx("span", { className: css.inboxInitial, "aria-hidden": true, children: memberInitial(message.from) }) : _jsx("img", { src: art, alt: "", "aria-hidden": true }), _jsxs("div", { children: [_jsx("strong", { children: message.from }), _jsx("p", { children: message.content })] })] }, `${index}:${message.from}`);
                         }) })] })] }));
 }
+/** The block height to copy from one ResizeObserver entry, or null when the entry carries nothing usable.
+ * Kept pure and exported so the sync mechanism can be EXECUTED by a test instead of merely read. */
 function DependencyMap({ tasks, members, t, discarded = false, workspace = false, onSelectTask }) {
     const [open, setOpen] = useState(true);
     const [hoverTaskId, setHoverTaskId] = useState(null);

@@ -218,3 +218,16 @@ Vì `lib/client.js.map` đổi ⇒ bộ byte phát hành đổi ⇒ phải pack 
 - **Ba yêu cầu gốc đều đã có bằng chứng đầu-cuối**: (1) đổi model khi member ĐANG CHẠY — `tests/t18` + `t138` (notice `[model changed: …]`, `request/header` trước/sau, attemptId trong transcript) và boot thật trên bản copy `team.json` ERP; (2) thêm member thủ công — `agent_teams_add_member` + panel Add member có ca `t21`/`t70`; (3) tương thích `team.json` ERP — boot sống trên 14 member (7 `removed` vẫn hiển thị) / 107 task, đọc được trường lạ `routeOverride{source:'erp'}`, ghi chỉ nhận `captain|http|profile` (tệp ERP gốc không đổi sha).
 - **Chất lượng đóng bằng đo, không bằng lời khai**: audit vòng 23 PASS; t145 đóng khoảng mù CSS nhúng (đột biến 0 byte bị bắt); t146 làm bảng sweep sạch FAIL (`PASS=44 FAIL=0 LEGACY=16 skipped(pack)=9`); t147 viết tài liệu vận hành trích nguyên văn từ mã.
 - **Vì sao dừng**: người dùng yêu cầu 'làm xong thì dừng'; không còn finding medium/high mở; hai việc còn lại đều cần người dùng quyết (publish npm; restart cứng app) nên không tự làm.
+
+## Vòng 24 — vì sao mở lại goal và mở vòng mới
+
+- Người dùng yêu cầu (m08276): cột dependencies phải cao bằng cột member, co giãn khi form Add member mở/đóng. Đây là yêu cầu HÀNH VI bố cục, không phải trang trí ⇒ phải sửa `lib/client/ActivityPanel.js`/CSS ⇒ `lib/client.js` đổi ⇒ **verdict vòng 23 hết hiệu lực**, cần pack vòng 24 + audit vòng 24.
+- Goal cũ `goal-1891aa22…` đã ở phase `complete` và KHÔNG resume được (`cannot resume goal … from phase "complete"`) ⇒ tạo goal mới `goal-d0bb5ed0…` cùng objective để tiếp tục vận hành liên tục; đây là ghi nhận kỹ thuật, không phải thay đổi mục tiêu.
+- Rủi ro đã biết: đo chiều cao bằng JS thì hành vi phụ thuộc môi trường trình duyệt; test hiện tại render bằng `react-dom/server` nên KHÔNG thấy chiều cao thật ⇒ card t148 phải nêu cách đo thật hoặc khai 'chưa đo được', và captain sẽ tự chụp ảnh GUI ở 2 trạng thái để nghiệm thu.
+
+## Vòng 25 — vì sao mở vòng mới và đánh đổi đã chấp nhận
+
+- **Sự kiện**: yêu cầu của người dùng (m08276) là cột dependencies cao BẰNG cột member và co giãn theo form Add member. t148 làm bằng JS (`ResizeObserver` + `--member-column-height`) và **KHÔNG đạt trên app thật** (captain đo: trái vượt đáy 1080, phải kết thúc ~1040 ⇒ biến không được gán). t150 thay bằng **CSS thuần** `align-self:stretch; contain:size; max-height:none` ⇒ `lib/client.js` đổi ⇒ **vòng mới (25)**.
+- **Đánh đổi đã đo và CHẤP NHẬN**: `contain:size` khiến chiều cao tối thiểu của card = padding+border (38 px) nên khi cột trái chỉ còn 1 hàng thì card phải cao hơn 16 px — nhưng nội dung **vẫn cuộn nội bộ** (đo: scrollH 95 > clientH 36) nên không mất truy cập. Trong app, cột trái luôn có header + delegation cell nên ca này không lộ.
+- **Vì sao không quay lại JS**: JS đo phụ thuộc thời điểm (ref null, tab ẩn, layout chưa xong) và **suite không phát hiện được** — bài học đã ghi ở CHECK vòng 25. CSS thuần sai thì sai ngay ở lần vẽ đầu, không có trạng thái trung gian.
+- **Phạm vi vòng 25**: 5 tệp đổi (3 nguồn + bundle + map), 10 dòng FROZEN còn lại phải nguyên; verdict vòng 23 hết hiệu lực; vòng 24 CHƯA audit và bị vòng 25 thay ⇒ không có bộ byte nào khác được phép công bố.

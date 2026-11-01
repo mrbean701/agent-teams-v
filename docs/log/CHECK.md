@@ -853,3 +853,10 @@ Các vòng trước đột biến SẢN PHẨM rồi xem cổng có đỏ. Lư�
 - Tôi từng ghi trong báo cáo 'cả 45 tệp Telegram đều có message id'. Đếm lại lần 1 (regex `message_?[Ii]d["\s:]*\s*\d+`) ra **38/47** — nhưng đó là regex SAI: các kỳ cũ dùng dạng `<!-- messageId=23 ... -->` (dấu `=`, camelCase).
 - Đếm lại lần 2 (regex `message[_ ]?id\s*[=:\s]\s*\d+`, không phân biệt hoa thường) ra **41/47**; 6 tệp `ky-10, ky-17, ky-18, ky-20, ky-21, ky-22` KHÔNG ghi id. Báo cáo nay ghi đúng 41/47 và nêu tên 6 kỳ thiếu.
 - Bài học: một con số tự khai trong hồ sơ phải được ĐẾM LẠI bằng regex đúng định dạng thật của dữ liệu; regex sai cho ra 'đã kiểm' giả và làm mọi kết luận sau đó lệch.
+
+## Vòng 25 — bài học (equal-height và cổng parity)
+
+1. **Đo bằng JS trong `useLayoutEffect` là cược vào thời điểm**: bản t148 chạy đúng trên trang tĩnh nhưng trên app thật `memberColumnRef.current` còn null ⇒ observer không bao giờ được tạo, biến CSS không được gán, và **suite vẫn xanh** vì H-checks chỉ đọc mã. Luật: bố cục phải làm bằng CSS nếu làm được; nếu buộc dùng JS thì phải có phép đo DOM thật trong app (không phải trang tĩnh).
+2. **`contain:size` là cách đúng để 'cột này không quyết định chiều cao hàng'**: nó khiến card phải chỉ nhận chiều cao từ hàng grid (`align-self:stretch`), nên form mở/đóng là tự co giãn; đánh đổi đã đo: khi cột trái chỉ 1 hàng thì card phải cao tối thiểu = padding+border (38 px) ⇒ lệch +16 px nhưng **vẫn cuộn nội bộ được** nên không mất nội dung.
+3. **Parity hai bản sao KHÔNG đủ**: audit vòng 25 chứng minh thêm `overflow:hidden` vào CẢ hai bản thì parity vẫn xanh (hai bản đồng ý với nhau!) trong khi DAG bị cắt ⇒ phải có phép kiểm NGỮ NGHĨA riêng cho hành vi (cấm clip) chứ không chỉ so hai bản.
+4. **Cổng phải so theo TÊN THUỘC TÍNH, không chỉ đếm problem**: t153 assert `problem.includes('> align-self ')` cho từng ca, nên một ca đỏ vì lý do khác không thể 'đỡ' cho ca đang hỏng.

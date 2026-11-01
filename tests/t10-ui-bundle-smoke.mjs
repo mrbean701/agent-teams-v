@@ -31,8 +31,8 @@ const bundlePath = path.join(pkgDir, 'lib', 'client.js');
 // t139: re-measured after the panel was re-laid out into two columns (member column left with
 // add-member on top, dependency map right); the bundle grew by the wrapper div plus its class
 // names. Measured with node:crypto over the file bytes, not copied from t59's FROZEN table.
-const EXPECTED_BUNDLE_SHA256 = '7dca20dd1edf2c6688a9d32d56a2f03f0ce13feac3bc71a57c05bfbdc65b1165';
-const EXPECTED_BUNDLE_BYTES = 258790;
+const EXPECTED_BUNDLE_SHA256 = '67d616a608c38ed37aae64e53c95442ed0f1f906e2ccf41a5f661f8ea4ab10c0';
+const EXPECTED_BUNDLE_BYTES = 258925;
 
 let failures = 0;
 const results = [];
