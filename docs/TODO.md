@@ -1,7 +1,7 @@
 # TODO — nami-agent-teams (nguồn chuẩn, đồng bộ với todo_write)
 
 Cập nhật: 2026-10-31 (dogfood GUI) — master hiển thị ĐẦY ĐỦ bảng này trong MỌI tin nhắn (quy tắc m00308).
-Đếm (t1–t147): VERIFIED=140 · CANCELLED=4 (t9,t63,t64,t92) · SUPERSEDED=3 (t66→t69, t93→t96, t141→t142) · FAILED=1 (t141) · IN_PROGRESS=0 · OPEN=0. **Bộ byte phát hành hiện hành = vòng 23** `62ad22758a405a9a…`/2 248 300 B/133 entry — audit t144 **PASS**, đã cài trong profile `desktop`, đã hiện đúng trên GUI; t145/t146/t147 chỉ chạm `tests/**`, `tools/**`, `docs/**` (lib drift 0) nên verdict giữ nguyên. **Dừng theo yêu cầu người dùng** sau t147.
+Đếm (t1–t147): VERIFIED=140 · CANCELLED=6 (t9,t63,t64,t92 + t66→t69, t93→t96 đóng sổ ledger lúc dừng) · SUPERSEDED=3 (t66→t69, t93→t96, t141→t142) · FAILED=1 (t141) · IN_PROGRESS=0 · OPEN=0. **Bộ byte phát hành hiện hành = vòng 23** `62ad22758a405a9a…`/2 248 300 B/133 entry — audit t144 **PASS**, đã cài trong profile `desktop`, đã hiện đúng trên GUI; t145/t146/t147 chỉ chạm `tests/**`, `tools/**`, `docs/**` (lib drift 0) nên verdict giữ nguyên. **Dừng theo yêu cầu người dùng** sau t147.
 Ghi chú: bảng Task lấy trạng thái từ `agent_teams_status` (nguồn máy); cột owner/model lấy từ `team.json` tại thời điểm cập nhật.
 
 | ID | Trạng thái | Nội dung | Owner · model | Phụ thuộc | Kết quả / bằng chứng gần nhất |
