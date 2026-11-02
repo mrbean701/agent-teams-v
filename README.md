@@ -50,7 +50,7 @@ dsh --profile <profile> --json -   # headless một lượt, in JSONL ra stdout
 ### 2.1 Vòng đời team
 
 - **Tạo team** ở hai chế độ: `automatic` (chạy ngay) hoặc `approval=required` (hai pha: roster + DAG nằm chờ, người dùng duyệt trong Web rồi `approve` mới spawn member).
-- **Sửa kế hoạch nguyên tử** (`edit_plan`): một batch có thứ tự gồm `add_task` / `update_task` / `remove_task` / `update_member` / `remove_member` / `add_member`; sai một phép là **không phép nào** được ghi.
+- **Sửa kế hoạch** (`edit_plan`): một batch có thứ tự gồm `add_task` / `update_task` / `remove_task` / `update_member` / `remove_member` / `add_member`; sai một phép là **không phép nào** được ghi.
 - **Tạm dừng / tiếp tục** (`resume` phải kèm lý do; không tái tạo task đã huỷ) và **kết thúc** (`delete`: ngắt member, đưa task về archive, giữ lịch sử).
 - Trạng thái team: `staged` → `running` → `halted` (halt do lỗi/huỷ) → `deleted` (archive).
 
